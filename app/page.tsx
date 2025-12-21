@@ -1,10 +1,15 @@
 import { Button } from "@/components/ui/button";
+import Logout from "@/module/auth/components/logout";
+import { requiredAuth } from "@/module/auth/utils/auth-utils";
 
 
-export default function Home() {
+export default async function Home() {
+    await requiredAuth()
   return (
-    <Button className="flex items-center justify-center">
-      HYY
-    </Button>
+    <Logout>
+      <Button>
+        Logout
+      </Button>
+    </Logout>
   );
 }
