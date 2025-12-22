@@ -31,7 +31,7 @@ export const AppSidebar = () => {
   const { data: session } = useSession();
 
   useEffect(() => {
-    setMounted(true);
+    setMounted(true); 
   }, []);
 
   const navigationItems = [
