@@ -8,6 +8,12 @@ import {
   getGithbToken,
 } from "@/module/github/lib/github";
 
+type ContributionDay = {
+  date: string;
+  count: number;
+  level: number;
+};
+
 export async function getDashboardStats() {
   try {
     const session = await auth.api.getSession({
@@ -64,7 +70,79 @@ export async function getDashboardStats() {
   }
 }
 
-export async function getMothlyActivity() {
+export async function getContributionStats() {
+  try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+
+    if (!session?.user) {
+      throw new Error("Unauthorized");
+    }
+
+    const token = await getGithbToken();
+    const octokit = new Octokit({ auth: token });
+    const { data: user } = await octokit.rest.users.getAuthenticated();
+
+    const calendar = await fetchUserContribution(token, user.login);
+
+    if (!calendar) {
+      return {
+        contributions: [] as ContributionDay[],
+        totalContributions: 0,
+      };
+    }
+
+    // Collect all non-zero contribution counts to calculate quartiles (GitHub's approach)
+    const nonZeroCounts = calendar.weeks
+      .flatMap((week: any) =>
+        week.contributionDays.map((day: any) => day.contributionCount)
+      )
+      .filter((count: number) => count > 0)
+      .sort((a: number, b: number) => a - b);
+
+    // Calculate quartile thresholds for level assignment
+    const getPercentile = (arr: number[], p: number) => {
+      if (arr.length === 0) return 0;
+      const index = Math.ceil((p / 100) * arr.length) - 1;
+      return arr[Math.max(0, index)];
+    };
+
+    const q1 = getPercentile(nonZeroCounts, 25);
+    const q2 = getPercentile(nonZeroCounts, 50);
+    const q3 = getPercentile(nonZeroCounts, 75);
+
+    const getLevel = (count: number): number => {
+      if (count === 0) return 0;
+      if (count <= q1) return 1;
+      if (count <= q2) return 2;
+      if (count <= q3) return 3;
+      return 4;
+    };
+
+    const contributions: ContributionDay[] = calendar.weeks.flatMap(
+      (week: any) =>
+        week.contributionDays.map((day: any) => ({
+          date: day.date,
+          count: day.contributionCount,
+          level: getLevel(day.contributionCount),
+        }))
+    );
+
+    return {
+      contributions,
+      totalContributions: calendar.totalContributions ?? 0,
+    };
+  } catch (error) {
+    console.error("Error fetching contribution stats:", error);
+    return {
+      contributions: [] as ContributionDay[],
+      totalContributions: 0,
+    };
+  }
+}
+
+export async function getMonthlyActivity() {
   try {
     const session = await auth.api.getSession({
       headers: await headers(),

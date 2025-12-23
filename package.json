@@ -54,6 +54,7 @@
     "octokit": "^5.0.5",
     "pg": "^8.16.3",
     "react": "19.2.3",
+    "react-activity-calendar": "^3.0.4",
     "react-day-picker": "^9.13.0",
     "react-dom": "19.2.3",
     "react-hook-form": "^7.69.0",
