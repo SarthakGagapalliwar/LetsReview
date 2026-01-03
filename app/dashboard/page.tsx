@@ -31,7 +31,7 @@ import {
 } from "@/module/dashboard/actions";
 import ContibutionGraph from "@/module/dashboard/components/contibution-graph";
 
-function page() {
+function Page() {
   const { data: stats, isLoading } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: async () => await getDashboardStats(),
@@ -159,4 +159,4 @@ function page() {
   );
 }
 
-export default page;
+export default Page;
