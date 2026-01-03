@@ -75,3 +75,47 @@ export async function fetchUserContribution(token: string, username: string) {
     return null;
   }
 }
+
+
+export const getRespositories = async (page:number=1,perPage:number=10)=>{
+  const token = await getGithbToken();
+  const octokit = new Octokit({auth:token});
+
+  const {data} = await octokit.rest.repos.listForAuthenticatedUser({
+    sort: "updated",
+    direction:"desc",
+    visibility:"all",
+    per_page:perPage,
+    page:page
+  })
+
+  return data;
+}
+
+export const createWebhook = async (owner:string, repo:string)=>{
+  const token = await getGithbToken();
+    const octokit = new Octokit({auth:token});
+
+    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_BASE_URL}/api/webhooks/github`
+
+    const {data:hooks} = await octokit.rest.repos.listWebhooks({
+      owner,
+      repo
+    })
+
+    const existingHook = hooks.find(hook=>hook.config.url === webhookUrl);
+    if(existingHook){
+      return existingHook;
+    }
+
+    const {data} = await octokit.rest.repos.createWebhook({
+      owner,
+      repo,
+      config:{
+        url:webhookUrl,
+        content_type:"json"
+      },
+      events:["pull_request"]
+    })
+    return data;
+}

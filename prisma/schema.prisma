@@ -1,6 +1,5 @@
-
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../lib/generated/prisma"
 }
 
@@ -14,18 +13,36 @@ model Test {
 }
 
 model User {
-  id            String    @id
+  id            String        @id
   name          String
   email         String
-  emailVerified Boolean   @default(false)
+  emailVerified Boolean       @default(false)
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
   sessions      Session[]
   accounts      Account[]
+  respository   Respository[]
 
   @@unique([email])
   @@map("user")
+}
+
+model Respository {
+  id       String @id @default(cuid())
+  githubId BigInt @unique
+  name     String
+  owner    String
+  fullName String
+  url      String
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("respository")
 }
 
 model Session {
