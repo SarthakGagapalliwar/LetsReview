@@ -31,7 +31,7 @@ export const AppSidebar = () => {
   const { data: session } = useSession();
 
   useEffect(() => {
-    setMounted(true); 
+    setMounted(true);
   }, []);
 
   const navigationItems = [
@@ -43,6 +43,8 @@ export const AppSidebar = () => {
   ];
 
   const isActive = (url: string) => {
+    // For the root dashboard link, only mark active on exact match to avoid catching all /dashboard/* paths
+    if (url === "/dashboard") return pathname === url;
     return pathname === url || pathname.startsWith(`${url}/`);
   };
 

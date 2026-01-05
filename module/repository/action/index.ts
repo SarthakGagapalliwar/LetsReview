@@ -11,7 +11,7 @@ export const fetchRepositories = async (
   const session = await auth.api.getSession({
     headers: await headers(),
   });
-        
+
   if (!session) {
     throw new Error("Unauthorized");
   }
@@ -32,33 +32,36 @@ export const fetchRepositories = async (
   }));
 };
 
-export const connectRepository = async(owner:string, repo:string, githubId:number)=>{
+export const connectRepository = async (
+  owner: string,
+  repo: string,
+  githubId: number
+) => {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
-        
+
   if (!session) {
     throw new Error("Unauthorized");
   }
   //TODO:check if user can connect more repo
 
-  const webhook = await createWebhook(owner, repo)
-  if(webhook){
+  const webhook = await createWebhook(owner, repo);
+  if (webhook) {
     await prisma.respository.create({
-      data:{
-        githubId:BigInt(githubId),
-        name:repo,
+      data: {
+        githubId: BigInt(githubId),
+        name: repo,
         owner,
-        fullName:`{owner}/${repo}`,
-        url:"https://github.com/${owner}/${repo}",
-        userId:session.user.id
-      }
-    })
+        fullName: `${owner}/${repo}`,
+        url: `https://github.com/${owner}/${repo}`,
+        userId: session.user.id,
+      },
+    });
   }
   //TODO:INCREMNT REPOSITYRY COUNT FOR USEAGE TRACKING
 
   //TODO :TRIGGER REPOSOTU INDINNG FOR RAG(FIRE AND FORGET)
 
   return webhook;
-
-}
+};
