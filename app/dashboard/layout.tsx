@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense } from "react";
 import {
   SidebarProvider,
   SidebarTrigger,
@@ -8,7 +8,11 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { Separator } from "@/components/ui/separator";
 import { requiredAuth } from "@/module/auth/utils/auth-utils";
 
-const DashboardLayout = async ({ children }: { children: React.ReactNode }) => {
+async function DashboardLayoutContent({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   await requiredAuth();
 
   return (
@@ -23,6 +27,14 @@ const DashboardLayout = async ({ children }: { children: React.ReactNode }) => {
         <main className="flex-1 overflow-auto p-4 md:p-6">{children}</main>
       </SidebarInset>
     </SidebarProvider>
+  );
+}
+
+const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
+  return (
+    <Suspense fallback={null}>
+      <DashboardLayoutContent>{children}</DashboardLayoutContent>
+    </Suspense>
   );
 };
 

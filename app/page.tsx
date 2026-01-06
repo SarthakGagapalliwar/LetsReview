@@ -1,10 +1,16 @@
 import { requiredAuth } from "@/module/auth/utils/auth-utils";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
+async function HomeContent() {
+  await requiredAuth();
+  redirect("/dashboard");
+}
 
-export default async function Home() {
-    await requiredAuth()
+export default function Home() {
   return (
-     redirect('/dashboard')
+    <Suspense fallback={null}>
+      <HomeContent />
+    </Suspense>
   );
 }
