@@ -82,7 +82,7 @@ export async function getConnectedRepositories() {
       throw new Error("Unauthorized");
     }
 
-    const repositories = await prisma.respository.findMany({
+    const repositories = await prisma.repository.findMany({
       where: { userId: session.user.id },
       select: {
         id: true,
@@ -103,7 +103,7 @@ export async function getConnectedRepositories() {
   }
 }
 
-export async function disconnectRepository(respositoryId: string) {
+export async function disconnectRepository(repositoryId: string) {
   try {
     const session = await auth.api.getSession({
       headers: await headers(),
@@ -112,25 +112,25 @@ export async function disconnectRepository(respositoryId: string) {
       throw new Error("Unauthorized");
     }
 
-    const respository = await prisma.respository.findUnique({
+    const repository = await prisma.repository.findUnique({
       where: {
-        id: respositoryId,
+        id: repositoryId,
         userId: session.user.id,
       },
     });
-    if (!respository) {
+    if (!repository) {
       throw new Error("Repository not fount");
     }
-    await deleteWebhook(respository.owner, respository.name);
+    await deleteWebhook(repository.owner, repository.name);
 
-    await prisma.respository.delete({
+    await prisma.repository.delete({
       where: {
-        id: respositoryId,
+        id: repositoryId,
         userId: session.user.id,
       },
     });
     revalidatePath("/dashboard/settings", "page");
-    revalidatePath("/dashboard/respository", "page");
+    revalidatePath("/dashboard/repository", "page");
 
     return { success: true };
   } catch (error) {
@@ -148,25 +148,25 @@ export async function disconnectAllRepository() {
       throw new Error("Unauthorized");
     }
 
-    const respository = await prisma.respository.findMany({
+    const repository = await prisma.repository.findMany({
       where: {
         userId: session.user.id,
       },
     });
 
     await Promise.all(
-      respository.map(async (repo) => {
+      repository.map(async (repo) => {
         await deleteWebhook(repo.owner, repo.name);
       })
     );
 
-    const result = await prisma.respository.deleteMany({
+    const result = await prisma.repository.deleteMany({
       where: {
         userId: session.user.id,
       },
     });
     revalidatePath("/dashboard/settings", "page");
-    revalidatePath("/dashboard/respository", "page");
+    revalidatePath("/dashboard/repository", "page");
 
     return { success: true, count: result.count };
   } catch (error) {

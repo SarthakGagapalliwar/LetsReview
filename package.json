@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.6",
     "@ai-sdk/openai-compatible": "^2.0.4",
     "@hookform/resolvers": "^5.2.2",
     "@pinecone-database/pinecone": "^6.1.3",

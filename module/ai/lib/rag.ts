@@ -1,18 +1,19 @@
 import { pineconeIndex } from "@/lib/pinecone";
 import {embed} from "ai";
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+// import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+import { google } from '@ai-sdk/google';
 
-const nim = createOpenAICompatible({
-  name: 'nim',
-  baseURL: 'https://integrate.api.nvidia.com/v1',
-  headers: {
-    Authorization: `Bearer ${process.env.NIM_API_KEY}`,
-  },
-});
+// const nim = createOpenAICompatible({
+//   name: 'nim',
+//   baseURL: 'https://integrate.api.nvidia.com/v1',
+//   headers: {
+//     Authorization: `Bearer ${process.env.NIM_API_KEY}`,
+//   },
+// });
 
 export async function generateEmbedding(text:string){
     const {embedding} = await embed({
-        model:nim.embeddingModel('nvidia/llama-3.2-nemoretriever-300m-embed-v2'),
+        model:google.embeddingModel("text-embedding-004"),
         value:text
     })
     console.log(embedding);

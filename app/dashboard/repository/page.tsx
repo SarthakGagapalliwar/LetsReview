@@ -31,7 +31,7 @@ interface Repository {
   isConnected?: boolean;
 }
 
-const RespositoryPage = () => {
+const RepositoryPage = () => {
   const {
     data,
     isLoading,
@@ -41,7 +41,7 @@ const RespositoryPage = () => {
     isFetchingNextPage,
   } = useRepositories();
 
-  const {mutate:connectRepo} = useConnectRepository()
+  const { mutate: connectRepo } = useConnectRepository();
 
   const [localConnectingId, setLocalConnectingId] = useState<number | null>(
     null
@@ -85,14 +85,14 @@ const RespositoryPage = () => {
     setLocalConnectingId(repo.id);
     connectRepo(
       {
-        owner:repo.full_name.split("/")[0],
-        repo:repo.name,
-        githubId:repo.id,
+        owner: repo.full_name.split("/")[0],
+        repo: repo.name,
+        githubId: repo.id,
       },
       {
-        onSettled:()=>setLocalConnectingId(null)
+        onSettled: () => setLocalConnectingId(null),
       }
-    )
+    );
   };
 
   if (isLoading) {
@@ -108,8 +108,8 @@ const RespositoryPage = () => {
       </div>
     );
   }
-  if(isError){
-    return <div>Failed to load repositories.</div>
+  if (isError) {
+    return <div>Failed to load repositories.</div>;
   }
 
   return (
@@ -203,4 +203,4 @@ const RespositoryPage = () => {
   );
 };
 
-export default RespositoryPage;
+export default RepositoryPage;

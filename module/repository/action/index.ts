@@ -19,7 +19,7 @@ export const fetchRepositories = async (
 
   const githubRepos = await getRespositories(page, perPage);
 
-  const dbRepos = await prisma.respository.findMany({
+  const dbRepos = await prisma.repository.findMany({
     where: {
       userId: session.user.id,
     },
@@ -49,7 +49,7 @@ export const connectRepository = async (
 
   const webhook = await createWebhook(owner, repo);
   if (webhook) {
-    await prisma.respository.create({
+    await prisma.repository.create({
       data: {
         githubId: BigInt(githubId),
         name: repo,
@@ -63,18 +63,17 @@ export const connectRepository = async (
   //TODO:INCREMNT REPOSITYRY COUNT FOR USEAGE TRACKING
 
   //TODO :TRIGGER REPOSOTU INDINNG FOR RAG(FIRE AND FORGET)
-  try{
+  try {
     await inngest.send({
-      name:"repository.connect",
-      data:{
+      name: "repository.connect",
+      data: {
         owner,
         repo,
-        userId:session.user.id
-      }
-    })
-  }catch(error){
-    console.error("Failed to trigger repository indexing:",error);
-    
+        userId: session.user.id,
+      },
+    });
+  } catch (error) {
+    console.error("Failed to trigger repository indexing:", error);
   }
 
   return webhook;
