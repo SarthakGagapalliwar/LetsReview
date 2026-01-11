@@ -1,7 +1,7 @@
 import { pineconeIndex } from "@/lib/pinecone";
-import {embed} from "ai";
+import { embed } from "ai";
 // import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import { google } from '@ai-sdk/google';
+import { google } from "@ai-sdk/google";
 
 // const nim = createOpenAICompatible({
 //   name: 'nim',
@@ -11,13 +11,12 @@ import { google } from '@ai-sdk/google';
 //   },
 // });
 
-export async function generateEmbedding(text:string){
-    const {embedding} = await embed({
-        model:google.embeddingModel("text-embedding-004"),
-        value:text
-    })
-    console.log(embedding);
-    return embedding;
+export async function generateEmbedding(text: string) {
+  const { embedding } = await embed({
+    model: google.embeddingModel("text-embedding-004"),
+    value: text,
+  });
+  return embedding;
 }
 
 export async function indexCodebase(
@@ -39,7 +38,7 @@ export async function indexCodebase(
         metadata: {
           repoId,
           path: file.path,
-          content,
+          content: truncatedContent,
         },
       });
     } catch (error) {
@@ -48,28 +47,33 @@ export async function indexCodebase(
   }
 
   if (vectors.length > 0) {
-  const batchSize = 100;
+    const batchSize = 100;
 
-  for (let i = 0; i < vectors.length; i += batchSize) {
-    const batch = vectors.slice(i, i + batchSize);
+    for (let i = 0; i < vectors.length; i += batchSize) {
+      const batch = vectors.slice(i, i + batchSize);
 
-    await pineconeIndex.upsert(batch);
+      await pineconeIndex.upsert(batch);
+    }
   }
+
+  console.log("indexing complete");
 }
 
-console.log("indexing complete");
-
-}
-
-export async function retrieveContext(query: string, repoId: string, topK: number = 5) {
+export async function retrieveContext(
+  query: string,
+  repoId: string,
+  topK: number = 5
+) {
   const embedding = await generateEmbedding(query);
 
   const results = await pineconeIndex.query({
     vector: embedding,
     filter: { repoId },
     topK,
-    includeMetadata: true
+    includeMetadata: true,
   });
 
-  return results.matches.map(match => match.metadata?.content as string).filter(Boolean);
+  return results.matches
+    .map((match) => match.metadata?.content as string)
+    .filter(Boolean);
 }
