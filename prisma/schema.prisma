@@ -20,10 +20,18 @@ model User {
   image         String?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
+
   sessions      Session[]
   accounts      Account[]
   repositories  Repository[]
+  
+  usuage UserUsage?
+  subscriptionTier  String @default("FREE")
+  subscriptionStatus String? //ACTIVE , CANCELLED, EXPIRED
 
+  polarCustomerId  String?  @unique
+  polarSubsriptionId  String?  @unique
+  
   @@unique([email])
   @@map("user")
 }
@@ -61,6 +69,18 @@ model Review {
 
   @@index([repositoryId])
   @@map("review")
+}
+
+model UserUsage {
+  id String @id @default(cuid())
+  userId String @unique
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repositoryCount Int @default(0)
+  reviewCounts Json @default("{}") 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user_usage")
 }
 
 model Session {
