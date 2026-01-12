@@ -1,15 +1,16 @@
+import LoginUI from "@/module/auth/components/login-ui";
+import { requiredUnAuth } from "@/module/auth/utils/auth-utils";
+import React from "react";
 
-import LoginUI from '@/module/auth/components/login-ui'
-import { requiredUnAuth } from '@/module/auth/utils/auth-utils'
-import React from 'react'
+export const dynamic = "force-dynamic";
 
-const LoginPage = async() => {
-    await requiredUnAuth()
+const LoginPage = async () => {
+  await requiredUnAuth();
   return (
     <div>
-        <LoginUI/>
+      <LoginUI />
     </div>
-  )
-}
+  );
+};
 
-export default LoginPage
+export default LoginPage;

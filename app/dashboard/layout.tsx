@@ -8,6 +8,8 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { Separator } from "@/components/ui/separator";
 import { requiredAuth } from "@/module/auth/utils/auth-utils";
 
+export const dynamic = "force-dynamic";
+
 async function DashboardLayoutContent({
   children,
 }: {
