@@ -27,6 +27,7 @@ export const auth = betterAuth({
   trustedOrigins: [
     "http://localhost:3000",
     "https://addisyn-strikebound-nonperceivably.ngrok-free.dev",
+    "https://lets-review-zeta.vercel.app"
   ],
   plugins: [
     polar({
