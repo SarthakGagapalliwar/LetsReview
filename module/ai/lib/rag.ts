@@ -11,11 +11,210 @@ import { google } from "@ai-sdk/google";
 //   },
 // });
 
-// Constants for vector operations
-const LIST_PAGE_SIZE = 100;
-const DELETE_BATCH_SIZE = 1000;
-const MAX_PAGINATION_ITERATIONS = 1000;
+// ============================================================================
+// Constants for vector operations (configurable via environment variables)
+// ============================================================================
+const LIST_PAGE_SIZE = parseInt(process.env.PINECONE_LIST_PAGE_SIZE || "100");
+const DELETE_BATCH_SIZE = parseInt(
+  process.env.PINECONE_DELETE_BATCH_SIZE || "1000"
+);
+const MAX_PAGINATION_ITERATIONS = parseInt(
+  process.env.PINECONE_MAX_ITERATIONS || "1000"
+);
+const MAX_OPERATION_DURATION_MS = parseInt(
+  process.env.PINECONE_MAX_DURATION_MS || "300000"
+); // 5 minutes default
+const RATE_LIMIT_DELAY_MS = parseInt(
+  process.env.PINECONE_RATE_LIMIT_DELAY_MS || "50"
+);
+const MAX_RETRY_ATTEMPTS = 3;
 const PROGRESS_LOG_INTERVAL = 5000;
+
+// ============================================================================
+// Utility Functions
+// ============================================================================
+
+/**
+ * Sleep utility for rate limiting and retry backoff
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Validates that a repository ID is properly formatted
+ * @throws Error if repoId is invalid
+ */
+function validateRepoId(repoId: string): void {
+  if (!repoId || typeof repoId !== "string") {
+    throw new Error("repoId must be a non-empty string");
+  }
+
+  const trimmed = repoId.trim();
+  if (trimmed.length === 0) {
+    throw new Error("repoId cannot be empty or whitespace only");
+  }
+
+  // Basic validation for GitHub-style repo IDs (owner/repo)
+  if (trimmed.includes(" ")) {
+    throw new Error("repoId cannot contain spaces");
+  }
+}
+
+/**
+ * Type guard to extract valid string IDs from Pinecone list response
+ */
+function extractValidIds(vectors: unknown[] | undefined): string[] {
+  if (!vectors || !Array.isArray(vectors)) {
+    return [];
+  }
+
+  return vectors
+    .filter(
+      (v): v is { id: string } =>
+        v != null &&
+        typeof v === "object" &&
+        "id" in v &&
+        typeof v.id === "string"
+    )
+    .map((v) => v.id);
+}
+
+/**
+ * Executes an async operation with exponential backoff retry
+ */
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  operationName: string,
+  maxAttempts: number = MAX_RETRY_ATTEMPTS
+): Promise<T> {
+  let lastError: Error | undefined;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      if (attempt < maxAttempts) {
+        const backoffMs = RATE_LIMIT_DELAY_MS * Math.pow(2, attempt);
+        console.warn(
+          `${operationName} failed (attempt ${attempt}/${maxAttempts}). ` +
+            `Retrying in ${backoffMs}ms...`
+        );
+        await sleep(backoffMs);
+      }
+    }
+  }
+
+  throw lastError;
+}
+
+/**
+ * Creates a timeout checker for long-running operations
+ */
+function createTimeoutChecker(
+  operationName: string,
+  maxDurationMs: number = MAX_OPERATION_DURATION_MS
+) {
+  const startTime = Date.now();
+
+  return function checkTimeout(): void {
+    const elapsed = Date.now() - startTime;
+    if (elapsed > maxDurationMs) {
+      throw new Error(
+        `${operationName} exceeded maximum duration of ${maxDurationMs}ms (elapsed: ${elapsed}ms)`
+      );
+    }
+  };
+}
+
+// ============================================================================
+// Async Generator for Memory-Efficient Vector Listing
+// ============================================================================
+
+/**
+ * Streams vector IDs in batches using async generator pattern.
+ * This prevents memory bloat for large repositories by yielding batches
+ * instead of accumulating all IDs in memory.
+ *
+ * @param prefix - The ID prefix to filter vectors
+ * @param checkTimeout - Optional timeout checker function
+ * @yields Arrays of vector IDs in batches
+ */
+async function* listVectorIdBatches(
+  prefix: string,
+  checkTimeout?: () => void
+): AsyncGenerator<string[], void, undefined> {
+  let paginationToken: string | undefined;
+  let iterationCount = 0;
+  let totalYielded = 0;
+
+  do {
+    // Check timeout if provided
+    checkTimeout?.();
+
+    // Enforce iteration limit
+    if (iterationCount >= MAX_PAGINATION_ITERATIONS) {
+      console.warn(
+        `Hit maximum pagination iterations (${MAX_PAGINATION_ITERATIONS}) for prefix: ${prefix}. ` +
+          `Total vectors found: ${totalYielded}`
+      );
+      break;
+    }
+
+    const listResult = await withRetry(
+      () =>
+        pineconeIndex.listPaginated({
+          prefix,
+          limit: LIST_PAGE_SIZE,
+          ...(paginationToken && { paginationToken }),
+        }),
+      `List vectors (iteration ${iterationCount + 1})`
+    );
+
+    const batchIds = extractValidIds(listResult.vectors);
+
+    if (batchIds.length > 0) {
+      totalYielded += batchIds.length;
+
+      // Progress logging
+      if (totalYielded % PROGRESS_LOG_INTERVAL < batchIds.length) {
+        console.log(
+          `Found ${totalYielded} vectors so far for prefix: ${prefix}`
+        );
+      }
+
+      yield batchIds;
+    }
+
+    paginationToken = listResult.pagination?.next;
+    iterationCount++;
+
+    // Rate limiting delay between pagination requests
+    if (paginationToken) {
+      await sleep(RATE_LIMIT_DELAY_MS);
+    }
+  } while (paginationToken);
+
+  console.log(`Finished listing vectors. Total found: ${totalYielded}`);
+}
+
+// ============================================================================
+// Deletion Statistics Tracking
+// ============================================================================
+
+interface DeletionStats {
+  totalFound: number;
+  totalDeleted: number;
+  failedBatches: number;
+  retriedOperations: number;
+  durationMs: number;
+}
+
+// ============================================================================
+// Core Functions
+// ============================================================================
 
 export async function generateEmbedding(text: string) {
   const { embedding } = await embed({
@@ -85,105 +284,151 @@ export async function retrieveContext(
 }
 
 /**
- * Delete all vectors for a repository before re-indexing
+ * Delete all vectors for a repository before re-indexing.
+ *
+ * Uses a streaming approach with async generators to prevent memory bloat
+ * for large repositories. Includes retry logic, rate limiting, and timeout
+ * protection for serverless environments.
+ *
+ * @param repoId - The repository identifier (e.g., "owner/repo")
+ * @returns Statistics about the deletion operation
+ * @throws Error if repoId is invalid or operation times out
  */
-export async function deleteRepositoryVectors(repoId: string) {
+export async function deleteRepositoryVectors(
+  repoId: string
+): Promise<DeletionStats> {
+  const startTime = Date.now();
+
+  // Input validation
+  validateRepoId(repoId);
+
+  const prefix = `${repoId}-`;
+  const checkTimeout = createTimeoutChecker(
+    `Delete vectors for ${repoId}`,
+    MAX_OPERATION_DURATION_MS
+  );
+
+  const stats: DeletionStats = {
+    totalFound: 0,
+    totalDeleted: 0,
+    failedBatches: 0,
+    retriedOperations: 0,
+    durationMs: 0,
+  };
+
   try {
-    // Since vector IDs are formatted as "repoId-filepath" (e.g., "owner/repo-src_file.ts")
-    // We can use the listPaginated API to find and delete all matching vectors
+    // Accumulator for batching deletions efficiently
+    let pendingIds: string[] = [];
 
-    const prefix = `${repoId}-`;
-    const idsToDelete: string[] = [];
+    // Stream through vector IDs and delete in batches
+    for await (const batchIds of listVectorIdBatches(prefix, checkTimeout)) {
+      stats.totalFound += batchIds.length;
+      pendingIds.push(...batchIds);
 
-    // List all vectors with IDs starting with the repo prefix
-    let paginationToken: string | undefined = undefined;
-    let iterationCount = 0;
+      // Delete when we've accumulated enough IDs
+      while (pendingIds.length >= DELETE_BATCH_SIZE) {
+        checkTimeout();
 
-    // Safety limit to prevent infinite loops from malformed pagination tokens
-    for (
-      iterationCount = 0;
-      iterationCount < MAX_PAGINATION_ITERATIONS;
-      iterationCount++
-    ) {
-      const listResult = await pineconeIndex.listPaginated({
-        prefix: prefix,
-        limit: LIST_PAGE_SIZE,
-        ...(paginationToken && { paginationToken }),
-      });
+        const deleteBatch = pendingIds.slice(0, DELETE_BATCH_SIZE);
+        pendingIds = pendingIds.slice(DELETE_BATCH_SIZE);
 
-      // Type-safe extraction of vector IDs
-      if (listResult.vectors && Array.isArray(listResult.vectors)) {
-        const validIds = listResult.vectors
-          .filter(
-            (v): v is { id: string } =>
-              v != null && typeof v === "object" && typeof v.id === "string"
-          )
-          .map((v) => v.id);
-        idsToDelete.push(...validIds);
-      }
+        try {
+          await withRetry(
+            () => pineconeIndex.deleteMany(deleteBatch),
+            `Delete batch of ${deleteBatch.length} vectors`
+          );
+          stats.totalDeleted += deleteBatch.length;
+        } catch (error) {
+          stats.failedBatches++;
+          console.error(
+            `Failed to delete batch after ${MAX_RETRY_ATTEMPTS} attempts:`,
+            error
+          );
+          // Continue with remaining batches instead of failing completely
+        }
 
-      // Progress logging for large repositories
-      if (
-        idsToDelete.length > 0 &&
-        idsToDelete.length % PROGRESS_LOG_INTERVAL === 0
-      ) {
-        console.log(
-          `Found ${idsToDelete.length} vectors so far for repository: ${repoId}`
-        );
-      }
-
-      paginationToken = listResult.pagination?.next;
-
-      // Exit loop if no more pages
-      if (!paginationToken) {
-        break;
+        // Rate limiting between delete operations
+        await sleep(RATE_LIMIT_DELAY_MS);
       }
     }
 
-    // Warn if we hit the iteration limit
-    if (iterationCount >= MAX_PAGINATION_ITERATIONS) {
+    // Delete any remaining IDs
+    if (pendingIds.length > 0) {
+      checkTimeout();
+
+      try {
+        await withRetry(
+          () => pineconeIndex.deleteMany(pendingIds),
+          `Delete final batch of ${pendingIds.length} vectors`
+        );
+        stats.totalDeleted += pendingIds.length;
+      } catch (error) {
+        stats.failedBatches++;
+        console.error(
+          `Failed to delete final batch after ${MAX_RETRY_ATTEMPTS} attempts:`,
+          error
+        );
+      }
+    }
+
+    stats.durationMs = Date.now() - startTime;
+
+    // Log final results
+    if (stats.totalFound === 0) {
+      console.log(`No vectors found for repository: ${repoId}`);
+    } else if (stats.failedBatches > 0) {
       console.warn(
-        `Hit maximum pagination iterations (${MAX_PAGINATION_ITERATIONS}) for repository: ${repoId}. Some vectors may not have been listed.`
+        `Partial deletion completed for ${repoId}. ` +
+          `Deleted ${stats.totalDeleted}/${stats.totalFound} vectors. ` +
+          `Failed batches: ${stats.failedBatches}. ` +
+          `Duration: ${stats.durationMs}ms`
+      );
+    } else {
+      console.log(
+        `Successfully deleted ${stats.totalDeleted} vectors for repository: ${repoId}. ` +
+          `Duration: ${stats.durationMs}ms`
       );
     }
 
-    // Delete all found vectors in batches with error tracking
-    if (idsToDelete.length > 0) {
-      let deletedCount = 0;
-      const failedBatches: number[] = [];
-
-      for (let i = 0; i < idsToDelete.length; i += DELETE_BATCH_SIZE) {
-        const batch = idsToDelete.slice(i, i + DELETE_BATCH_SIZE);
-        const batchIndex = Math.floor(i / DELETE_BATCH_SIZE);
-
-        try {
-          await pineconeIndex.deleteMany(batch);
-          deletedCount += batch.length;
-        } catch (batchError) {
-          console.error(
-            `Failed to delete batch ${batchIndex} for ${repoId}:`,
-            batchError
-          );
-          failedBatches.push(batchIndex);
-        }
-      }
-
-      if (failedBatches.length > 0) {
-        console.warn(
-          `Partial deletion completed for ${repoId}. ` +
-            `Deleted ${deletedCount}/${idsToDelete.length} vectors. ` +
-            `Failed batches: ${failedBatches.join(", ")}`
-        );
-      } else {
-        console.log(
-          `Deleted ${deletedCount} vectors for repository: ${repoId}`
-        );
-      }
-    } else {
-      console.log(`No vectors found for repository: ${repoId}`);
-    }
+    return stats;
   } catch (error) {
-    console.error(`Failed to delete vectors for ${repoId}:`, error);
+    stats.durationMs = Date.now() - startTime;
+    console.error(
+      `Failed to delete vectors for ${repoId} after ${stats.durationMs}ms:`,
+      error
+    );
+    throw error;
+  }
+}
+
+/**
+ * Alternative deletion method using metadata filter.
+ * This is more efficient for Pinecone serverless indexes as it doesn't
+ * require listing vectors first.
+ *
+ * Note: This approach deletes vectors based on the repoId metadata field,
+ * which must be indexed as a filterable field in Pinecone.
+ *
+ * @param repoId - The repository identifier
+ * @returns Promise that resolves when deletion is complete
+ */
+export async function deleteRepositoryVectorsByMetadata(
+  repoId: string
+): Promise<void> {
+  validateRepoId(repoId);
+
+  try {
+    await withRetry(
+      () =>
+        pineconeIndex.deleteMany({
+          filter: { repoId: { $eq: repoId } },
+        }),
+      `Delete vectors by metadata for ${repoId}`
+    );
+
+    console.log(`Deleted all vectors with repoId metadata: ${repoId}`);
+  } catch (error) {
+    console.error(`Failed to delete vectors by metadata for ${repoId}:`, error);
     throw error;
   }
 }
