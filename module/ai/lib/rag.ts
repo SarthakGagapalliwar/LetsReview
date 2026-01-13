@@ -83,11 +83,45 @@ export async function retrieveContext(
  */
 export async function deleteRepositoryVectors(repoId: string) {
   try {
-    // Delete all vectors with this repoId
-    await pineconeIndex.deleteMany({
-      filter: { repoId },
-    });
-    console.log(`Deleted all vectors for repository: ${repoId}`);
+    // Since vector IDs are formatted as "repoId-filepath" (e.g., "owner/repo-src_file.ts")
+    // We can use the listPaginated API to find and delete all matching vectors
+
+    const prefix = `${repoId}-`;
+    const idsToDelete: string[] = [];
+
+    // List all vectors with IDs starting with the repo prefix
+    let paginationToken: string | undefined = undefined;
+
+    do {
+      const listResult = await pineconeIndex.listPaginated({
+        prefix: prefix,
+        limit: 100,
+        ...(paginationToken && { paginationToken }),
+      });
+
+      if (listResult.vectors) {
+        const validIds = listResult.vectors
+          .map((v) => v.id)
+          .filter((id): id is string => typeof id === "string");
+        idsToDelete.push(...validIds);
+      }
+
+      paginationToken = listResult.pagination?.next;
+    } while (paginationToken);
+
+    // Delete all found vectors in batches
+    if (idsToDelete.length > 0) {
+      const batchSize = 1000;
+      for (let i = 0; i < idsToDelete.length; i += batchSize) {
+        const batch = idsToDelete.slice(i, i + batchSize);
+        await pineconeIndex.deleteMany(batch);
+      }
+      console.log(
+        `Deleted ${idsToDelete.length} vectors for repository: ${repoId}`
+      );
+    } else {
+      console.log(`No vectors found for repository: ${repoId}`);
+    }
   } catch (error) {
     console.error(`Failed to delete vectors for ${repoId}:`, error);
     throw error;
