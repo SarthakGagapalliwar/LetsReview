@@ -12,23 +12,64 @@ import { google } from "@ai-sdk/google";
 // });
 
 // ============================================================================
-// Constants for vector operations (configurable via environment variables)
+// Configuration for vector operations
+// All values configurable via environment variables with sensible defaults
 // ============================================================================
-const LIST_PAGE_SIZE = parseInt(process.env.PINECONE_LIST_PAGE_SIZE || "100");
-const DELETE_BATCH_SIZE = parseInt(
-  process.env.PINECONE_DELETE_BATCH_SIZE || "1000"
-);
-const MAX_PAGINATION_ITERATIONS = parseInt(
-  process.env.PINECONE_MAX_ITERATIONS || "1000"
-);
-const MAX_OPERATION_DURATION_MS = parseInt(
-  process.env.PINECONE_MAX_DURATION_MS || "300000"
-); // 5 minutes default
-const RATE_LIMIT_DELAY_MS = parseInt(
-  process.env.PINECONE_RATE_LIMIT_DELAY_MS || "50"
-);
-const MAX_RETRY_ATTEMPTS = 3;
-const PROGRESS_LOG_INTERVAL = 5000;
+
+/**
+ * Pinecone configuration with validation
+ * @property listPageSize - Max vectors per list request (1-100, Pinecone limit)
+ * @property deleteBatchSize - Max vectors per delete request (1-1000, Pinecone limit)
+ * @property maxPaginationIterations - Safety limit for pagination loops (1-10000)
+ * @property maxOperationDurationMs - Timeout for long operations (1000-600000ms)
+ * @property rateLimitDelayMs - Delay between API calls (0-1000ms)
+ * @property maxRetryAttempts - Retry count for failed operations (1-10)
+ * @property progressLogInterval - Log progress every N vectors (100-100000)
+ */
+const pineconeConfig = {
+  listPageSize: Math.min(
+    100,
+    Math.max(1, parseInt(process.env.PINECONE_LIST_PAGE_SIZE || "100"))
+  ),
+  deleteBatchSize: Math.min(
+    1000,
+    Math.max(1, parseInt(process.env.PINECONE_DELETE_BATCH_SIZE || "1000"))
+  ),
+  maxPaginationIterations: Math.min(
+    10000,
+    Math.max(1, parseInt(process.env.PINECONE_MAX_ITERATIONS || "1000"))
+  ),
+  maxOperationDurationMs: Math.min(
+    600000,
+    Math.max(1000, parseInt(process.env.PINECONE_MAX_DURATION_MS || "300000"))
+  ),
+  rateLimitDelayMs: Math.min(
+    1000,
+    Math.max(0, parseInt(process.env.PINECONE_RATE_LIMIT_DELAY_MS || "50"))
+  ),
+  maxRetryAttempts: Math.min(
+    10,
+    Math.max(1, parseInt(process.env.PINECONE_MAX_RETRY_ATTEMPTS || "3"))
+  ),
+  progressLogInterval: Math.min(
+    100000,
+    Math.max(
+      100,
+      parseInt(process.env.PINECONE_PROGRESS_LOG_INTERVAL || "5000")
+    )
+  ),
+} as const;
+
+// Destructure for convenience (maintaining backward compatibility)
+const {
+  listPageSize: LIST_PAGE_SIZE,
+  deleteBatchSize: DELETE_BATCH_SIZE,
+  maxPaginationIterations: MAX_PAGINATION_ITERATIONS,
+  maxOperationDurationMs: MAX_OPERATION_DURATION_MS,
+  rateLimitDelayMs: RATE_LIMIT_DELAY_MS,
+  maxRetryAttempts: MAX_RETRY_ATTEMPTS,
+  progressLogInterval: PROGRESS_LOG_INTERVAL,
+} = pineconeConfig;
 
 // ============================================================================
 // Utility Functions
@@ -204,12 +245,36 @@ async function* listVectorIdBatches(
 // Deletion Statistics Tracking
 // ============================================================================
 
-interface DeletionStats {
+/**
+ * Statistics returned from vector deletion operations
+ */
+export interface DeletionStats {
+  /** Total number of vectors found matching the criteria */
   totalFound: number;
+  /** Number of vectors successfully deleted */
   totalDeleted: number;
+  /** Number of batch operations that failed after all retries */
   failedBatches: number;
+  /** Number of operations that required retry attempts */
   retriedOperations: number;
+  /** Total operation duration in milliseconds */
   durationMs: number;
+}
+
+/**
+ * Error thrown when deletion completes with partial failures
+ */
+export class PartialDeletionError extends Error {
+  constructor(
+    public readonly stats: DeletionStats,
+    public readonly repoId: string
+  ) {
+    super(
+      `Partial deletion for ${repoId}: ${stats.totalDeleted}/${stats.totalFound} vectors deleted. ` +
+        `${stats.failedBatches} batches failed after retries.`
+    );
+    this.name = "PartialDeletionError";
+  }
 }
 
 // ============================================================================
@@ -373,26 +438,37 @@ export async function deleteRepositoryVectors(
 
     stats.durationMs = Date.now() - startTime;
 
-    // Log final results
+    // Log final results and handle partial failures
     if (stats.totalFound === 0) {
       console.log(`No vectors found for repository: ${repoId}`);
-    } else if (stats.failedBatches > 0) {
+      return stats;
+    }
+
+    if (stats.failedBatches > 0) {
       console.warn(
         `Partial deletion completed for ${repoId}. ` +
           `Deleted ${stats.totalDeleted}/${stats.totalFound} vectors. ` +
           `Failed batches: ${stats.failedBatches}. ` +
           `Duration: ${stats.durationMs}ms`
       );
-    } else {
-      console.log(
-        `Successfully deleted ${stats.totalDeleted} vectors for repository: ${repoId}. ` +
-          `Duration: ${stats.durationMs}ms`
-      );
+      // Throw error for partial failures so callers can handle appropriately
+      throw new PartialDeletionError(stats, repoId);
     }
+
+    console.log(
+      `Successfully deleted ${stats.totalDeleted} vectors for repository: ${repoId}. ` +
+        `Duration: ${stats.durationMs}ms`
+    );
 
     return stats;
   } catch (error) {
     stats.durationMs = Date.now() - startTime;
+
+    // Re-throw PartialDeletionError as-is
+    if (error instanceof PartialDeletionError) {
+      throw error;
+    }
+
     console.error(
       `Failed to delete vectors for ${repoId} after ${stats.durationMs}ms:`,
       error
