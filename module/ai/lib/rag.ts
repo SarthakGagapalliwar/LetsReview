@@ -77,3 +77,19 @@ export async function retrieveContext(
     .map((match) => match.metadata?.content as string)
     .filter(Boolean);
 }
+
+/**
+ * Delete all vectors for a repository before re-indexing
+ */
+export async function deleteRepositoryVectors(repoId: string) {
+  try {
+    // Delete all vectors with this repoId
+    await pineconeIndex.deleteMany({
+      filter: { repoId },
+    });
+    console.log(`Deleted all vectors for repository: ${repoId}`);
+  } catch (error) {
+    console.error(`Failed to delete vectors for ${repoId}:`, error);
+    throw error;
+  }
+}
