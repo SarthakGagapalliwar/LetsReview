@@ -69,7 +69,7 @@ function LoginUI() {
           {/* Footer Links */}
           <div className="space-y-4 text-center text-sm text-muted-foreground">
             <div>
-              New to CodeRabbit?{" "}
+              New to LetsReview?{" "}
               <a
                 href="#"
                 className="text-primary hover:text-primary/80 font-semibold"
