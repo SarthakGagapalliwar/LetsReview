@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { deleteWebhook } from "@/module/github/lib/github";
 import { promise, success } from "zod";
 import { count } from "console";
+import { deleteRepositoryVectors } from "@/module/ai/lib/rag";
 
 export async function getUserProfile() {
   try {
@@ -123,6 +124,15 @@ export async function disconnectRepository(repositoryId: string) {
     }
     await deleteWebhook(repository.owner, repository.name);
 
+    // Delete vectors from Pinecone
+    try {
+      await deleteRepositoryVectors(`${repository.owner}/${repository.name}`);
+      console.log(`Deleted vectors for ${repository.owner}/${repository.name}`);
+    } catch (error) {
+      console.error("Failed to delete vectors:", error);
+      // Continue with deletion even if vector cleanup fails
+    }
+
     await prisma.repository.delete({
       where: {
         id: repositoryId,
@@ -157,6 +167,18 @@ export async function disconnectAllRepository() {
     await Promise.all(
       repository.map(async (repo) => {
         await deleteWebhook(repo.owner, repo.name);
+
+        // Delete vectors from Pinecone
+        try {
+          await deleteRepositoryVectors(`${repo.owner}/${repo.name}`);
+          console.log(`Deleted vectors for ${repo.owner}/${repo.name}`);
+        } catch (error) {
+          console.error(
+            `Failed to delete vectors for ${repo.owner}/${repo.name}:`,
+            error
+          );
+          // Continue with other deletions even if vector cleanup fails
+        }
       })
     );
 
