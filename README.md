@@ -33,58 +33,6 @@ LetsReview is an AI-powered code review platform that automatically reviews your
 - Pinecone account
 - NVIDIA NIM API key
 
-### Environment Variables
-
-Create a `.env` file with:
-
-```env
-DATABASE_URL=postgresql://...
-BETTER_AUTH_URL=http://localhost:3000
-
-# GitHub OAuth
-GITHUB_CLIENT_ID=
-GITHUB_CLIENT_SECRET=
-
-# AI & Vector DB
-PINECONE_DB_API_KEY=
-NIM_API_KEY=
-
-# Background Jobs
-INNGEST_EVENT_KEY=
-
-# Payments (Polar.sh)
-POLAR_ACCESS_TOKEN=
-POLAR_WEBHOOK_SECRET=
-```
-
-### Installation
-
-```bash
-# Install dependencies
-bun install
-
-# Generate Prisma client
-npx prisma generate
-
-# Run database migrations
-npx prisma migrate dev
-
-# Start development server
-bun dev
-```
-
-### Running with Inngest (for background jobs)
-
-```bash
-# Terminal 1: Next.js dev server
-bun dev
-
-# Terminal 2: Inngest dev server
-npx inngest-cli dev
-
-# For webhook testing, use ngrok
-ngrok http 3000
-```
 
 ## Project Structure
 
@@ -122,27 +70,4 @@ letsreview/
 4. **Generate Review** - AI generates review with RAG context from codebase
 5. **Post Comment** - Review is posted as a comment on the PR
 
-## Database Commands
 
-```bash
-# Create migration
-npx prisma migrate dev --name <description>
-
-# Generate client
-npx prisma generate
-
-# Open Prisma Studio
-npx prisma studio
-```
-
-## Deployment
-
-Deploy on Vercel:
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/your-repo/letsreview)
-
-Ensure all environment variables are configured in your Vercel project settings.
-
-## License
-
-MIT
