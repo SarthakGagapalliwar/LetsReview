@@ -1,6 +1,7 @@
 "use client";
 import { signIn } from "@/lib/auth-client";
 import { GithubIcon } from "lucide-react";
+import Image from "next/image";
 import { useState } from "react";
 
 import React from "react";
@@ -28,7 +29,13 @@ function LoginUI() {
           {/* Logo */}
           <div className="mb-16">
             <div className="inline-flex items-center gap-2 text-2xl font-bold">
-              <div className="w-8 h-8 bg-primary rounded-full" />
+              <Image
+                src="/logoipsum.svg"
+                alt="LetsReview Logo"
+                width={32}
+                height={32}
+                className="w-8 h-8"
+              />
               <span>LetsReview</span>
             </div>
           </div>

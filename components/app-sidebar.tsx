@@ -1,6 +1,7 @@
 "use client";
 
 import { Github, BookOpen, Settings, Moon, Sun, LogOut } from "lucide-react";
+import Image from "next/image";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
@@ -67,8 +68,14 @@ export const AppSidebar = () => {
       <SidebarHeader className="border-b">
         <div className="flex flex-col gap-4 px-2 py-6">
           <div className="flex items-center gap-4 px-3 py-4 rounded-lg bg-sidebar-accent/50 hover:bg-sidebar-accent/70 transition-colors">
-            <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary text-primary-foreground shrink-0">
-              <Github className="w-6 h-6" />
+            <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary text-primary-foreground shrink-0 overflow-hidden">
+              <Image
+                src="/GitHub.png"
+                alt="GitHub"
+                width={32}
+                height={32}
+                className="w-18 h-18 object-contain"
+              />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-sidebar-foreground tracking-wide">
