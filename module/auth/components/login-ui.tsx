@@ -91,6 +91,12 @@ function LoginUI() {
               {/* Top Right Badge - enhanced blur */}
 
               {/* Centered Form */}
+                <div className="absolute top-0 right-0 p-10 sm:p-12 md:p-14 lg:p-16 pointer-events-none">
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 backdrop-blur-md border border-white/10 text-[11px] font-medium text-white/70 uppercase tracking-wider shadow-lg">
+                  <span className="size-2 bg-emerald-400 animate-pulse" />
+                  Now Available
+                </div>
+              </div>
               <div className="w-full max-w-sm mx-auto space-y-8 my-auto animate-fade-in stagger-3">
                 {/* Header */}
                 <div className="space-y-2 text-center">
