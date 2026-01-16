@@ -1,11 +1,12 @@
 "use client";
 import { signIn } from "@/lib/auth-client";
-import { GithubIcon } from "lucide-react";
+import { GithubIcon, ArrowRight } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
-import Dither from "@/components/ui/dither";
-
 import React from "react";
+import Dither from "@/components/ui/dither";
+import OkiroAscii from "@/components/okiro";
+import AsciiHero from "@/components/okiro";
 
 function LoginUI() {
   const [isLoading, setIsLoading] = useState(false);
@@ -24,147 +25,97 @@ function LoginUI() {
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden">
-      {/* Fullscreen Dithered Wave Background */}
-      <div className="absolute inset-0">
-        <Dither
-          waveColor={[0.5, 0.5, 0.5]}
-          disableAnimation={false}
-          enableMouseInteraction={true}
-          mouseRadius={0.3}
-          colorNum={4}
-          waveAmplitude={0.3}
-          waveFrequency={3}
-          waveSpeed={0.05}
-        />
+      {/* Dither background effect */}
+      <div
+        className="absolute inset-0"
+        style={{ width: "100%", height: "100%" }}
+      >
+        <Dither colorNum={40} />
       </div>
 
-      {/* Centered Glassmorphic Container */}
-      <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-12">
-        {/* Glassmorphic Panel - like the navbar in reference */}
-        <div className="w-full max-w-6xl rounded-3xl border border-white/10 bg-black/40 backdrop-blur-xl shadow-2xl">
+      {/* Centered container */}
+      <div className="relative z-10 flex min-h-screen items-center justify-center p-6 sm:p-8 md:p-12 lg:p-16 animate-fade-in">
+        {/* Main card - enhanced glassmorphism */}
+        <div className="w-full max-w-7xl backdrop-blur-sm bg-black/20 border border-white/10 shadow-2xl overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-2">
-            {/* Left - Hero */}
-            <div className="px-8 md:px-12 py-10 md:py-14 border-b lg:border-b-0 lg:border-r border-white/10">
-              {/* Logo */}
-              <div className="flex items-center gap-3 mb-8">
-                <div className="p-2 rounded-xl bg-white/10">
+            {/* Left - Hero section with layered blur */}
+            <div className="p-10 sm:p-12 md:p-14 lg:p-16 border-b lg:border-b-0 lg:border-r border-white/10 backdrop-blur-xl">
+              {/* Header - enhanced blur */}
+              <div className="flex items-center gap-3 mb-12">
+                <div className="p-3 bg-white/10 backdrop-blur-md border border-white/10">
                   <Image
                     src="/logoipsum.svg"
                     alt="LetsReview Logo"
-                    width={28}
-                    height={28}
-                    className="w-7 h-7 invert"
+                    width={24}
+                    height={24}
+                    className="w-6 h-6"
                   />
                 </div>
-                <span className="text-xl font-semibold text-white tracking-tight">
+                <span className="text-xl font-medium text-white tracking-tight">
                   LetsReview
                 </span>
               </div>
 
-              {/* Badge */}
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/10 text-xs font-medium text-white/80 mb-6">
-                <span className="size-1.5 rounded-full bg-white/60" />
-                New Background
-              </div>
-
               {/* Headline */}
-              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-[1.1] tracking-tight text-white">
-                Retro dithered waves to enhance your UI
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-medium leading-[1.1] tracking-tight text-white animate-fade-in">
+                Ship faster with
+                <br />
+                <span className="text-white/50">AI code reviews</span>
               </h1>
 
               {/* Subtext */}
-              <p className="mt-4 text-base md:text-lg text-white/60 leading-relaxed max-w-md">
-                Supercharge your team to ship faster with the most advanced AI
-                code reviews.
+              <p className="mt-6 text-base sm:text-lg text-white/60 leading-relaxed max-w-md animate-fade-in stagger-1">
+                Supercharge your team to ship faster with the most advanced
+                AI-powered code reviews for your GitHub repositories.
               </p>
 
-              {/* Feature pills */}
-              <div className="mt-8 flex flex-wrap gap-3 text-sm text-white/70">
-                <div className="flex items-center gap-2">
-                  <div className="size-1.5 rounded-full bg-white/50" />
+              {/* Feature pills with glass background */}
+              <div className="mt-10 flex items-center gap-3 text-xs text-white/50 animate-fade-in stagger-2">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 backdrop-blur-sm border border-white/10 rounded-sm whitespace-nowrap">
+                  <div className="size-1.5 bg-white/30" />
                   AI-Powered Analysis
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="size-1.5 rounded-full bg-white/50" />
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 backdrop-blur-sm border border-white/10 rounded-sm whitespace-nowrap">
+                  <div className="size-1.5 bg-white/30" />
                   GitHub Integration
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="size-1.5 rounded-full bg-white/50" />
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 backdrop-blur-sm border border-white/10 rounded-sm whitespace-nowrap">
+                  <div className="size-1.5 bg-white/30" />
                   Real-time Feedback
                 </div>
               </div>
             </div>
 
-            {/* Right - Login */}
-            <div className="px-8 md:px-12 py-10 md:py-14 flex items-center">
-              <div className="w-full">
-                {/* Inner glassmorphic card */}
-                <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-6 md:p-8">
-                  <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-white">
-                    Welcome Back
-                  </h2>
-                  <p className="mt-2 text-sm text-white/60">
-                    Sign in to continue to your dashboard.
-                  </p>
+            {/* Right - Login section with layered blur */}
+            <div className="p-10 sm:p-12 md:p-14 lg:p-16 flex flex-col relative h-full backdrop-blur-xl">
+              {/* Top Right Badge - enhanced blur */}
 
-                  {/* Primary CTA - white button like reference */}
+              {/* Centered Form */}
+              <div className="w-full max-w-sm mx-auto space-y-8 my-auto animate-fade-in stagger-3">
+                {/* Header */}
+                <div className="space-y-2 text-center">
+                  <h2 className="text-2xl font-semibold tracking-tight text-white">
+                    Welcome back
+                  </h2>
+                  <p className="text-sm text-zinc-400">
+                    Sign in to your account to continue
+                  </p>
+                </div>
+
+                {/* Actions */}
+                <div className="space-y-4">
                   <button
                     onClick={handleGithubLogin}
                     disabled={isLoading}
-                    className="mt-6 w-full py-3.5 px-4 bg-white text-black rounded-full font-semibold hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-3 shadow-lg"
+                    className="group w-full h-11 px-4 bg-white/90 text-black text-sm font-medium hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2 rounded-sm backdrop-blur-sm"
                   >
-                    <GithubIcon size={18} />
-                    {isLoading ? "Signing in..." : "Get Started"}
+                    <GithubIcon size={16} strokeWidth={2} />
+                    {isLoading ? "Connecting..." : "Continue with GitHub"}
+                    <ArrowRight
+                      size={14}
+                      className="ml-auto opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200"
+                    />
                   </button>
-
-                  {/* Secondary button */}
-                  <button
-                    disabled={isLoading}
-                    className="mt-3 w-full py-3.5 px-4 bg-white/10 text-white rounded-full font-medium hover:bg-white/15 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-3 border border-white/10"
-                  >
-                    Learn More
-                  </button>
-
-                  {/* Divider */}
-                  <div className="my-6 flex items-center gap-4">
-                    <div className="flex-1 h-px bg-white/10" />
-                    <span className="text-xs text-white/40 uppercase tracking-wider">
-                      or
-                    </span>
-                    <div className="flex-1 h-px bg-white/10" />
-                  </div>
-
-                  {/* Links */}
-                  <div className="space-y-3 text-center text-sm">
-                    <div className="text-white/60">
-                      New to LetsReview?{" "}
-                      <a
-                        href="#"
-                        className="text-white hover:text-white/80 font-semibold transition-colors"
-                      >
-                        Create an account
-                      </a>
-                    </div>
-                    <div>
-                      <a
-                        href="#"
-                        className="text-white/60 hover:text-white font-medium transition-colors"
-                      >
-                        Self-Hosted Services →
-                      </a>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer */}
-                <div className="mt-6 flex justify-center gap-4 text-xs text-white/40">
-                  <a href="#" className="hover:text-white/60 transition-colors">
-                    Terms of Use
-                  </a>
-                  <span>•</span>
-                  <a href="#" className="hover:text-white/60 transition-colors">
-                    Privacy Policy
-                  </a>
                 </div>
               </div>
             </div>
