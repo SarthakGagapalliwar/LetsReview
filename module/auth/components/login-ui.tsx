@@ -37,7 +37,7 @@ function LoginUI() {
         <div className="w-full max-w-7xl backdrop-blur-sm bg-black/20 border border-white/10 shadow-2xl overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-2">
             {/* Left - Hero section with layered blur */}
-            <div className="p-10 sm:p-12 md:p-14 lg:p-16 border-b lg:border-b-0 lg:border-r border-white/10 backdrop-blur-xl">
+            <div className="p-8 lg:p-16 border-b lg:border-b-0 lg:border-r border-white/10 backdrop-blur-xl">
               {/* Header - enhanced blur */}
               <div className="flex items-center gap-3 mb-12">
                 <div className="p-3 bg-white/10 backdrop-blur-md border border-white/10">
@@ -68,7 +68,7 @@ function LoginUI() {
               </p>
 
               {/* Feature pills with glass background */}
-              <div className="mt-10 flex items-center gap-3 text-xs text-white/50 animate-fade-in stagger-2">
+              <div className="mt-10 flex flex-wrap items-center gap-3 text-xs text-white/50 animate-fade-in stagger-2">
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 backdrop-blur-sm border border-white/10 rounded-sm whitespace-nowrap">
                   <div className="size-1.5 bg-white/30" />
                   AI-Powered Analysis
@@ -85,17 +85,17 @@ function LoginUI() {
             </div>
 
             {/* Right - Login section with layered blur */}
-            <div className="p-10 sm:p-12 md:p-14 lg:p-16 flex flex-col relative h-full backdrop-blur-xl">
+            <div className="p-8 lg:p-16 flex flex-col relative h-full backdrop-blur-xl justify-center">
               {/* Top Right Badge - enhanced blur */}
-
-              {/* Centered Form */}
-                <div className="absolute top-0 right-0 p-10 sm:p-12 md:p-14 lg:p-16 pointer-events-none">
+              <div className="w-full mb-8 lg:mb-0 lg:absolute lg:top-0 lg:right-0 lg:p-16 flex justify-end pointer-events-none">
                 <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 backdrop-blur-md border border-white/10 text-[11px] font-medium text-white/70 uppercase tracking-wider shadow-lg">
                   <span className="size-2 bg-emerald-400 animate-pulse" />
                   Now Available
                 </div>
               </div>
-              <div className="w-full max-w-sm mx-auto space-y-8 my-auto animate-fade-in stagger-3">
+
+              {/* Centered Form */}
+              <div className="w-full max-w-sm mx-auto space-y-8 animate-fade-in stagger-3">
                 {/* Header */}
                 <div className="space-y-2 text-center">
                   <h2 className="text-2xl font-semibold tracking-tight text-white">
