@@ -5,8 +5,6 @@ import Image from "next/image";
 import { useState } from "react";
 import React from "react";
 import Dither from "@/components/ui/dither";
-import OkiroAscii from "@/components/okiro";
-import AsciiHero from "@/components/okiro";
 
 function LoginUI() {
   const [isLoading, setIsLoading] = useState(false);
