@@ -126,6 +126,9 @@ Make sure to always close the formatting syntax whenever used. Make sure to not 
 
     // Update the initial comment with the actual review
     await step.run("update-review-comment", async () => {
+      if (!commentId) {
+        throw new Error("Failed to get comment ID from initial comment");
+      }
       await updateComment(
         token,
         owner,
