@@ -1,5 +1,9 @@
 import { inngest } from "../client";
-import { getPullRequestDiff, postReviewComment } from "@/module/github/lib/github";
+import {
+  getPullRequestDiff,
+  postReviewComment,
+  updateComment,
+} from "@/module/github/lib/github";
 import { retrieveContext } from "@/module/ai/lib/rag";
 import { generateText } from "ai";
 import prisma from "@/lib/db";
@@ -37,6 +41,40 @@ export const generateReview = inngest.createFunction(
       }
     );
 
+    // Post initial "generating review" comment
+    const commentId = await step.run("post-initial-comment", async () => {
+      return await postReviewComment(
+        token,
+        owner,
+        repo,
+        prNumber,
+        `## 🤖 AI Code Review
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Codelessly/FlutterLoadingGIFs/master/packages/cupertino_activity_indicator.gif" width="40" alt="Loading..." />
+</p>
+
+> [!NOTE]
+> **Review in progress...**
+>
+> LetsReview is analyzing your pull request. This may take a few moments.
+
+### What we're doing:
+| Step | Status |
+|------|--------|
+| 📥 Fetching pull request changes | ✅ Complete |
+| 🔍 Analyzing code context | ⏳ In progress... |
+| 🧠 Generating AI-powered review | ⏳ Pending |
+| 📝 Preparing detailed feedback | ⏳ Pending |
+
+*Please wait while we review your code...*
+
+---
+*Powered by LetsReview*`,
+        true // return comment ID
+      );
+    });
+
     const context = await step.run("retrieve-context", async () => {
       const query = `${title}\n${description}`;
 
@@ -70,24 +108,31 @@ Format your response in markdown.
 Make sure to always close the formatting syntax whenever used. Make sure to not add --- at the end of the poem.
 `;
 
-const nim = createOpenAICompatible({
-  name: 'nim',
-  baseURL: 'https://integrate.api.nvidia.com/v1',
-  headers: {
-    Authorization: `Bearer ${process.env.NIM_API_KEY}`,
-  },
-});
+      const nim = createOpenAICompatible({
+        name: "nim",
+        baseURL: "https://integrate.api.nvidia.com/v1",
+        headers: {
+          Authorization: `Bearer ${process.env.NIM_API_KEY}`,
+        },
+      });
 
       const { text } = await generateText({
-        model: nim.chatModel("deepseek-ai/deepseek-v3.2"),
+        model: nim.chatModel("moonshotai/kimi-k2-thinking"),
         prompt,
       });
 
       return text;
     });
 
-    await step.run("post-comment", async () => {
-      await postReviewComment(token, owner, repo, prNumber, review);
+    // Update the initial comment with the actual review
+    await step.run("update-review-comment", async () => {
+      await updateComment(
+        token,
+        owner,
+        repo,
+        commentId,
+        `## 🤖 AI Code Review\n\n${review}\n\n---\n*Powered by LetsReview*`
+      );
     });
 
     await step.run("save-review", async () => {
