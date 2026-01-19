@@ -34,11 +34,11 @@ export const generateReview = inngest.createFunction(
           accounts.accessToken,
           owner,
           repo,
-          prNumber
+          prNumber,
         );
 
         return { ...data, token: accounts.accessToken };
-      }
+      },
     );
 
     // Post initial "generating review" comment

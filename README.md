@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LetsReview
+
+**Cut Code Review Time & Bugs in Half. Instantly.**
+
+LetsReview is an AI-powered code review platform that automatically reviews your GitHub pull requests using RAG (Retrieval-Augmented Generation) with contextual understanding of your codebase.
+
+## Features
+
+- 🤖 **AI-Powered Reviews** - Automatic code reviews using NVIDIA NIM (DeepSeek)
+- 📚 **Contextual Understanding** - RAG with Pinecone indexes your codebase for relevant context
+- 🔗 **GitHub Integration** - Seamless webhook integration for PR events
+- 💳 **Subscription Tiers** - Free tier (5 repos, 5 reviews/repo) and Pro unlimited via Polar.sh
+- 🔄 **Auto Re-indexing** - Codebase automatically re-indexed on push to default branch
+
+## Tech Stack
+
+- **Framework**: Next.js 16 (App Router)
+- **Database**: PostgreSQL with Prisma ORM
+- **Auth**: better-auth with GitHub OAuth
+- **AI**: NVIDIA NIM API (DeepSeek), Vercel AI SDK
+- **Vector DB**: Pinecone
+- **Background Jobs**: Inngest
+- **Payments**: Polar.sh
+- **UI**: shadcn/ui, Tailwind CSS, lucide-react
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Node.js 20+ or Bun
+- PostgreSQL database
+- GitHub OAuth App
+- Pinecone account
+- NVIDIA NIM API key
+
+
+## Project Structure
+
+```
+letsreview/
+├── app/                    # Next.js App Router
+│   ├── api/
+│   │   ├── webhooks/       # GitHub & Polar webhooks
+│   │   └── inngest/        # Inngest endpoint
+│   └── dashboard/          # Protected dashboard pages
+├── module/                 # Feature modules
+│   ├── ai/                 # RAG indexing & context retrieval
+│   ├── auth/               # Authentication components
+│   ├── github/             # GitHub API wrappers
+│   ├── payment/            # Subscription management
+│   ├── repository/         # Repository management
+│   └── review/             # Review actions
+├── inngest/                # Background job functions
+├── lib/                    # Core utilities
+│   ├── auth.ts             # better-auth server config
+│   ├── auth-client.ts      # Auth client hooks
+│   ├── db.ts               # Prisma client
+│   └── pinecone.ts         # Pinecone client
+├── components/             # React components
+│   └── ui/                 # shadcn/ui components
+└── prisma/
+    └── schema.prisma       # Database schema
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## How It Works
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. **Connect Repository** - User connects their GitHub repo via OAuth
+2. **Index Codebase** - Inngest job indexes code into Pinecone vectors
+3. **PR Webhook** - GitHub sends webhook when PR is opened/updated
+4. **Generate Review** - AI generates review with RAG context from codebase
+5. **Post Comment** - Review is posted as a comment on the PR
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

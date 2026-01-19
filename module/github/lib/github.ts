@@ -118,7 +118,7 @@ export const createWebhook = async (owner: string, repo: string) => {
       url: webhookUrl,
       content_type: "json",
     },
-    events: ["pull_request"],
+    events: ["pull_request", "push"],
   });
   return data;
 };
@@ -244,14 +244,36 @@ export async function postReviewComment(
   owner: string,
   repo: string,
   prNumber: number,
-  review: string
-) {
+  review: string,
+  returnId: boolean = false
+): Promise<number | void> {
   const octokit = new Octokit({ auth: token });
 
-  await octokit.rest.issues.createComment({
+  const response = await octokit.rest.issues.createComment({
     owner,
     repo,
     issue_number: prNumber,
-    body: `## 🤖 AI Code Review\n\n${review}---\n*Powered by letsReview*`,
+    body: review,
+  });
+
+  if (returnId) {
+    return response.data.id;
+  }
+}
+
+export async function updateComment(
+  token: string,
+  owner: string,
+  repo: string,
+  commentId: number,
+  body: string
+) {
+  const octokit = new Octokit({ auth: token });
+
+  await octokit.rest.issues.updateComment({
+    owner,
+    repo,
+    comment_id: commentId,
+    body,
   });
 }

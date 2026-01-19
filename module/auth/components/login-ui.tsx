@@ -1,9 +1,10 @@
 "use client";
 import { signIn } from "@/lib/auth-client";
-import { GithubIcon } from "lucide-react";
+import { GithubIcon, ArrowRight } from "lucide-react";
+import Image from "next/image";
 import { useState } from "react";
-
 import React from "react";
+import Dither from "@/components/ui/dither";
 
 function LoginUI() {
   const [isLoading, setIsLoading] = useState(false);
@@ -21,81 +22,107 @@ function LoginUI() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex">
-      {/* Left Section - Hero Content */}
-      <div className="flex-1 flex flex-col justify-center px-12 py-16">
-        <div className="max-w-lg mx-auto">
-          {/* Logo */}
-          <div className="mb-16">
-            <div className="inline-flex items-center gap-2 text-2xl font-bold">
-              <div className="w-8 h-8 bg-primary rounded-full" />
-              <span>LetsReview</span>
-            </div>
-          </div>
-
-          {/* Main Content */}
-          <h1 className="text-5xl font-bold mb-6 leading-tight text-balance">
-            Cut Code Review Time & Bugs in Half.{" "}
-            <span className="block">Instantly.</span>
-          </h1>
-
-          <p className="text-lg text-muted-foreground leading-relaxed">
-            Supercharge your team to ship faster with the most advanced AI code
-            reviews.
-          </p>
-        </div>
+    <div className="relative min-h-screen w-full overflow-hidden">
+      {/* Dither background effect */}
+      <div
+        className="absolute inset-0"
+        style={{ width: "100%", height: "100%" }}
+      >
+        <Dither colorNum={40} />
       </div>
 
-      {/* Right Section - Login Form */}
-      <div className="flex-1 flex flex-col justify-center items-center px-12 py-16 bg-muted/20">
-        <div className="w-full max-w-sm">
-          <div className="mb-12">
-            <h2 className="text-3xl font-bold mb-2">Welcome Back</h2>
-            <p className="text-muted-foreground">
-              Login using the following providers:
-            </p>
-          </div>
+      {/* Centered container */}
+      <div className="relative z-10 flex min-h-screen items-center justify-center p-6 sm:p-8 md:p-12 lg:p-16 animate-fade-in">
+        {/* Main card - enhanced glassmorphism */}
+        <div className="w-full max-w-7xl backdrop-blur-sm bg-black/20 border border-white/10 shadow-2xl overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-2">
+            {/* Left - Hero section with layered blur */}
+            <div className="p-8 lg:p-16 border-b lg:border-b-0 lg:border-r border-white/10 backdrop-blur-xl">
+              {/* Header - enhanced blur */}
+              <div className="flex items-center gap-3 mb-12">
+                <div className="p-3 bg-white/10 backdrop-blur-md border border-white/10">
+                  <Image
+                    src="/logoipsum.svg"
+                    alt="LetsReview Logo"
+                    width={24}
+                    height={24}
+                    className="w-6 h-6"
+                  />
+                </div>
+                <span className="text-xl font-medium text-white tracking-tight">
+                  LetsReview
+                </span>
+              </div>
 
-          {/* GitHub Login Button */}
-          <button
-            onClick={handleGithubLogin}
-            disabled={isLoading}
-            className="w-full py-3 px-4 bg-foreground text-background rounded-lg font-semibold hover:bg-foreground/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-3 mb-8"
-          >
-            <GithubIcon size={20} />
-            {isLoading ? "Signing in..." : "GitHub"}
-          </button>
+              {/* Headline */}
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-medium leading-[1.1] tracking-tight text-white animate-fade-in">
+                Ship faster with
+                <br />
+                <span className="text-white/50">AI code reviews</span>
+              </h1>
 
-          {/* Footer Links */}
-          <div className="space-y-4 text-center text-sm text-muted-foreground">
-            <div>
-              New to CodeRabbit?{" "}
-              <a
-                href="#"
-                className="text-primary hover:text-primary/80 font-semibold"
-              >
-                Sign Up
-              </a>
+              {/* Subtext */}
+              <p className="mt-6 text-base sm:text-lg text-white/60 leading-relaxed max-w-md animate-fade-in stagger-1">
+                Supercharge your team to ship faster with the most advanced
+                AI-powered code reviews for your GitHub repositories.
+              </p>
+
+              {/* Feature pills with glass background */}
+              <div className="mt-10 flex flex-wrap items-center gap-3 text-xs text-white/50 animate-fade-in stagger-2">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 backdrop-blur-sm border border-white/10 rounded-sm whitespace-nowrap">
+                  <div className="size-1.5 bg-white/30" />
+                  AI-Powered Analysis
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 backdrop-blur-sm border border-white/10 rounded-sm whitespace-nowrap">
+                  <div className="size-1.5 bg-white/30" />
+                  GitHub Integration
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 backdrop-blur-sm border border-white/10 rounded-sm whitespace-nowrap">
+                  <div className="size-1.5 bg-white/30" />
+                  Real-time Feedback
+                </div>
+              </div>
             </div>
-            <div>
-              <a
-                href="#"
-                className="text-primary hover:text-primary/80 font-semibold"
-              >
-                Self-Hosted Services
-              </a>
-            </div>
-          </div>
 
-          {/* Bottom Links */}
-          <div className="mt-12 pt-8 border-t border-border flex justify-center gap-4 text-xs text-muted-foreground">
-            <a href="#" className="hover:text-foreground">
-              Terms of Use
-            </a>
-            <span>and</span>
-            <a href="#" className="hover:text-foreground">
-              Privacy Policy
-            </a>
+            {/* Right - Login section with layered blur */}
+            <div className="p-8 lg:p-16 flex flex-col relative h-full backdrop-blur-xl justify-center">
+              {/* Top Right Badge - enhanced blur */}
+              <div className="w-full mb-8 lg:mb-0 lg:absolute lg:top-0 lg:right-0 lg:p-16 flex justify-end pointer-events-none">
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 backdrop-blur-md border border-white/10 text-[11px] font-medium text-white/70 uppercase tracking-wider shadow-lg">
+                  <span className="size-2 bg-emerald-400 animate-pulse" />
+                  Now Available
+                </div>
+              </div>
+
+              {/* Centered Form */}
+              <div className="w-full max-w-sm mx-auto space-y-8 animate-fade-in stagger-3">
+                {/* Header */}
+                <div className="space-y-2 text-center">
+                  <h2 className="text-2xl font-semibold tracking-tight text-white">
+                    Welcome back
+                  </h2>
+                  <p className="text-sm text-zinc-400">
+                    Sign in to your account to continue
+                  </p>
+                </div>
+
+                {/* Actions */}
+                <div className="space-y-4">
+                  <button
+                    onClick={handleGithubLogin}
+                    disabled={isLoading}
+                    className="group w-full h-11 px-4 bg-white/90 text-black text-sm font-medium hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2 rounded-sm backdrop-blur-sm"
+                  >
+                    <GithubIcon size={16} strokeWidth={2} />
+                    {isLoading ? "Connecting..." : "Continue with GitHub"}
+                    <ArrowRight
+                      size={14}
+                      className="ml-auto opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200"
+                    />
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

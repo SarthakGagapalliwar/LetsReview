@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { createWebhook, getRespositories } from "@/module/github/lib/github";
 import { inngest } from "@/inngest/client";
+import { canConnectRepository, decrementRepositoryCount, incrementRepositoryCount } from "@/module/payment/lib/subscription";
 
 export const fetchRepositories = async (
   page: number = 1,
@@ -46,6 +47,11 @@ export const connectRepository = async (
     throw new Error("Unauthorized");
   }
   //TODO:check if user can connect more repo
+  const canConnect = await canConnectRepository(session.user.id);
+
+  if(!canConnect){
+     throw new Error("Repository limit reached. Please upgrade to Pro for unlimited repositories.");
+  }
 
   const webhook = await createWebhook(owner, repo);
   if (webhook) {
@@ -59,8 +65,8 @@ export const connectRepository = async (
         userId: session.user.id,
       },
     });
-  }
-  //TODO:INCREMNT REPOSITYRY COUNT FOR USEAGE TRACKING
+    
+    await incrementRepositoryCount(session.user.id);
 
   //TODO :TRIGGER REPOSOTU INDINNG FOR RAG(FIRE AND FORGET)
   try {
@@ -75,6 +81,7 @@ export const connectRepository = async (
   } catch (error) {
     console.error("Failed to trigger repository indexing:", error);
   }
+}
 
   return webhook;
 };
