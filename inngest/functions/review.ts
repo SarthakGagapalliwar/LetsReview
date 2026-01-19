@@ -71,66 +71,76 @@ export const generateReview = inngest.createFunction(
 
 ---
 *Powered by LetsReview*`,
-        true, // return comment ID
+        true // return comment ID
       );
     });
 
     const context = await step.run("retrieve-context", async () => {
       const query = `${title}\n${description}`;
-
       return await retrieveContext(query, `${owner}/${repo}`);
     });
 
     const review = await step.run("generate-ai-review", async () => {
-      // 1. System Instruction: Polyglot Persona
-      // We instruct the AI to identify the stack itself based on the code provided.
-      const systemInstruction = `You are a Principal Software Architect and Polyglot Developer. 
-      
-Your task is to review a Pull Request for a software project.
-First, analyze the provided code and context to determine the programming language(s) and framework(s) being used.
-Then, conduct a review based on the **idiomatic best practices** for that specific technology stack.
+      // 1. System Instruction: Senior Tech Lead Persona
+      // Balances low-level bug hunting with high-level architectural advice.
+      const systemInstruction = `You are a Senior Technical Lead and Polyglot Developer.
 
-Your goals:
-1. **Correctness**: Ensure logic is sound and handles edge cases.
-2. **Security**: Look for common vulnerabilities (OWASP Top 10, Injection, Secrets).
-3. **Performance**: Identify algorithmic inefficiencies (e.g., O(n^2) loops) or resource leaks.
-4. **Maintainability**: Ensure code is clean, readable, and follows the existing patterns found in the Context.
+Your role is to ensure the code is production-ready. You must analyze the code for both **Correctness** (Bugs, Typos) and **Quality** (Architecture, Security).
 
-Tone: Constructive, professional, and clear.`;
+First, detect the language/framework from the code.
+Then, mentally **simulate the execution** of the changes to catch runtime errors.
+Finally, prioritize your findings by severity:
+1. **BLOCKING**: Logic errors, security leaks, or critical performance issues.
+2. **IMPORTANT**: Architectural misalignment with the provided Context.
+3. **OPTIONAL**: Style nitpicks or minor optimizations (Only mention if valuable).
 
-      // 2. The User Prompt: Stack-Agnostic Inputs
+Tone: Direct, helpful, and authoritative.`;
+
+      // 2. The User Prompt: Best of Both Worlds
       const prompt = `${systemInstruction}
 
-    ---
-    ### 📝 PR Metadata
-    **Title:** ${title}
-    **Description:** ${description || "No description provided"}
+---
+### 📝 PR Metadata
+**Title:** ${title}
+**Description:** ${description || "No description provided"}
 
-    ---
-    ### 📚 Project Context (RAG)
-    *Use this context to understand the existing project structure, utility functions, and coding conventions.*
+---
+### 📚 Project Context (RAG)
+*Use this context to verify architectural consistency and existing patterns.*
 
-    ${context.join("\n\n")}
+${context.join("\n\n")}
 
-    ---
-    ### 🔄 Code Changes (Diff)
-    \`\`\`diff
-    ${diff}
-    \`\`\`
+---
+### 🔄 Code Changes (Diff)
+\`\`\`diff
+${diff}
+\`\`\`
 
-    ---
-    ### Response Instructions
-    Analyze the code and provide the following in Markdown format:
+---
+### Response Instructions
+Analyze the code and provide the following in Markdown format:
 
-    1.  **📝 Summary**: High-level summary of the changes.
-    2.  **📊 Visualization**: A Mermaid JS sequence diagram for the critical logic flow. 
-        * Wrap in \`\`\`mermaid ... \`\`\`.
-        * **CRITICAL**: Use simple alphanumeric labels. Do NOT use braces {}, quotes "", or parentheses () inside node text.
-    3.  **🧭 Walkthrough**: A file-by-file explanation of the changes. Use emojis to indicate file roles and change types (e.g., 📄 file, ➕ added, ✏️ modified, ➖ removed, 🔧 config, 🧩 component).
-    4.  **🛡️ Security & Performance**: Specific issues regarding efficiency or safety. If none, state "No significant issues found."
-    5.  **💡 Code Suggestions**: Actionable refactoring or fixes. 
-        * Use code blocks.
-        * Explain *why* the change is recommended based on the detected language's best practices.`;
+1.  **📝 Summary & Verdict**:
+    * One sentence summary of the change.
+    * **Verdict**: [Approve / Request Changes / Discuss] - Choose one based on the severity of issues found.
+
+2.  **🛑 Critical Issues** (If any):
+    * **Logic & Stability**: Crash risks, race conditions, infinite recursion, typos affecting execution, or unhandled errors.
+    * **Security**: OWASP vulnerabilities, auth bypasses, or sensitive data exposure.
+    * *If none, explicitly state "No critical issues found."*
+
+3.  **🧭 Walkthrough**:
+    * Brief file-by-file breakdown using emojis (📄, ➕, ✏️). Focus on *what* changed.
+
+4.  **📊 Visualization**:
+    * A Mermaid JS sequence diagram for the **changed logic only** (skip if changes are trivial).
+    * Wrap in \`\`\`mermaid ... \`\`\`.
+    * **CRITICAL**: Use simple alphanumeric labels. Do NOT use braces {}, quotes "", or parentheses () inside node text.
+
+5.  **💡 Suggestions & Improvements**:
+    * **Performance**: Database query efficiency, algorithmic complexity, or resource management.
+    * **Maintainability**: Code modularity, separation of concerns, or readability improvements.
+    * *Show code snippets for fixes.*`;
 
       const nim = createOpenAICompatible({
         name: "nim",
@@ -141,11 +151,9 @@ Tone: Constructive, professional, and clear.`;
       });
 
       const { text } = await generateText({
-        // Mistral Large is great, but DeepSeek R1 (if available on NIM) is clearer for logic.
-        // Sticking to Mistral Large for now as it follows complex formatting instructions well.
         model: nim.chatModel("moonshotai/kimi-k2-thinking"),
         prompt,
-        temperature: 0.2, // Lower temperature to reduce hallucinations in code analysis
+        temperature: 0.2, // Keep low for precision
       });
 
       return text;
@@ -161,16 +169,13 @@ Tone: Constructive, professional, and clear.`;
         owner,
         repo,
         commentId,
-        `## 🤖 AI Code Review\n\n${review}\n\n---\n*Powered by LetsReview*`,
+        `## 🤖 AI Code Review\n\n${review}\n\n---\n*Powered by LetsReview*`
       );
     });
 
     await step.run("save-review", async () => {
       const repository = await prisma.repository.findFirst({
-        where: {
-          owner,
-          name: repo,
-        },
+        where: { owner, name: repo },
       });
 
       if (repository) {
@@ -186,6 +191,7 @@ Tone: Constructive, professional, and clear.`;
         });
       }
     });
+
     return { success: true };
-  },
+  }
 );
