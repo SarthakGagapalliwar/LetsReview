@@ -1,5 +1,9 @@
 import { inngest } from "../client";
-import { getPullRequestDiff, postReviewComment } from "@/module/github/lib/github";
+import {
+  getPullRequestDiff,
+  postReviewComment,
+  updateComment,
+} from "@/module/github/lib/github";
 import { retrieveContext } from "@/module/ai/lib/rag";
 import { generateText } from "ai";
 import prisma from "@/lib/db";
@@ -37,65 +41,141 @@ export const generateReview = inngest.createFunction(
       }
     );
 
+    // Post initial "generating review" comment
+    const commentId = await step.run("post-initial-comment", async () => {
+      return await postReviewComment(
+        token,
+        owner,
+        repo,
+        prNumber,
+        `## 🤖 AI Code Review
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/SarthakGagapalliwar/LetsReview/main/public/thinking.gif" height="200" width="200" alt="Loading..." />
+</p>
+
+> [!NOTE]
+> **Review in progress...**
+>
+> LetsReview is analyzing your pull request. This may take a few moments.
+
+### What we're doing:
+| Step | Status |
+|------|--------|
+| 📥 Fetching pull request changes | ✅ Complete |
+| 🔍 Analyzing code context | ⏳ In progress... |
+| 🧠 Generating AI-powered review | ⏳ Pending |
+| 📝 Preparing detailed feedback | ⏳ Pending |
+
+*Please wait while we review your code...*
+
+---
+*Powered by LetsReview*`,
+        true // return comment ID
+      );
+    });
+
     const context = await step.run("retrieve-context", async () => {
       const query = `${title}\n${description}`;
-
       return await retrieveContext(query, `${owner}/${repo}`);
     });
 
     const review = await step.run("generate-ai-review", async () => {
-      const prompt = `You are an expert code reviewer. Analyze the following pull request and provide a detailed, constructive code review.
+      // 1. System Instruction: Senior Tech Lead Persona
+      // Balances low-level bug hunting with high-level architectural advice.
+      const systemInstruction = `You are a Senior Technical Lead and Polyglot Developer.
 
-PR Title: ${title}
-PR Description: ${description || "No description provided"}
+Your role is to ensure the code is production-ready. You must analyze the code for both **Correctness** (Bugs, Typos) and **Quality** (Architecture, Security).
 
-Context from Codebase:
+First, detect the language/framework from the code.
+Then, mentally **simulate the execution** of the changes to catch runtime errors.
+Finally, prioritize your findings by severity:
+1. **BLOCKING**: Logic errors, security leaks, or critical performance issues.
+2. **IMPORTANT**: Architectural misalignment with the provided Context.
+3. **OPTIONAL**: Style nitpicks or minor optimizations (Only mention if valuable).
+
+Tone: Direct, helpful, and authoritative.`;
+
+      // 2. The User Prompt: Best of Both Worlds
+      const prompt = `${systemInstruction}
+
+---
+### 📝 PR Metadata
+**Title:** ${title}
+**Description:** ${description || "No description provided"}
+
+---
+### 📚 Project Context (RAG)
+*Use this context to verify architectural consistency and existing patterns.*
+
 ${context.join("\n\n")}
 
-Code Changes:
+---
+### 🔄 Code Changes (Diff)
 \`\`\`diff
 ${diff}
 \`\`\`
 
-Please provide:
-1. **Walkthrough**: A file-by-file explanation of the changes.
-2. **Sequence Diagram**: A Mermaid JS sequence diagram visualizing the flow of the changes (if applicable). Use \`\`\`mermaid ... \`\`\` block. **IMPORTANT**: Ensure the Mermaid syntax is valid. Do not use special characters (like quotes, braces, parentheses) inside Note text or labels as it breaks rendering. Keep the diagram simple.
-3. **Summary**: Brief overview.
-4. **Strengths**: What's done well.
-5. **Issues**: Bugs, security concerns, code smells.
-6. **Suggestions**: Specific code improvements.
-7. **Poem**: A short, creative poem summarizing the changes at the very end.
+---
+### Response Instructions
+Analyze the code and provide the following in Markdown format:
 
-Format your response in markdown.
-Make sure to always close the formatting syntax whenever used. Make sure to not add --- at the end of the poem.
-`;
+1.  **📝 Summary & Verdict**:
+    * One sentence summary of the change.
+    * **Verdict**: [Approve / Request Changes / Discuss] - Choose one based on the severity of issues found.
 
-const nim = createOpenAICompatible({
-  name: 'nim',
-  baseURL: 'https://integrate.api.nvidia.com/v1',
-  headers: {
-    Authorization: `Bearer ${process.env.NIM_API_KEY}`,
-  },
-});
+2.  **🛑 Critical Issues** (If any):
+    * **Logic & Stability**: Crash risks, race conditions, infinite recursion, typos affecting execution, or unhandled errors.
+    * **Security**: OWASP vulnerabilities, auth bypasses, or sensitive data exposure.
+    * *If none, explicitly state "No critical issues found."*
+
+3.  **🧭 Walkthrough**:
+    * Brief file-by-file breakdown using emojis (📄, ➕, ✏️). Focus on *what* changed.
+
+4.  **📊 Visualization**:
+    * A Mermaid JS sequence diagram for the **changed logic only** (skip if changes are trivial).
+    * Wrap in \`\`\`mermaid ... \`\`\`.
+    * **CRITICAL**: Use simple alphanumeric labels. Do NOT use braces {}, quotes "", or parentheses () inside node text.
+
+5.  **💡 Suggestions & Improvements**:
+    * **Performance**: Database query efficiency, algorithmic complexity, or resource management.
+    * **Maintainability**: Code modularity, separation of concerns, or readability improvements.
+    * *Show code snippets for fixes.*`;
+
+      const nim = createOpenAICompatible({
+        name: "nim",
+        baseURL: "https://integrate.api.nvidia.com/v1",
+        headers: {
+          Authorization: `Bearer ${process.env.NIM_API_KEY}`,
+        },
+      });
 
       const { text } = await generateText({
-        model: nim.chatModel("deepseek-ai/deepseek-v3.2"),
+        model: nim.chatModel("moonshotai/kimi-k2-thinking"),
         prompt,
+        temperature: 0.2, // Keep low for precision
       });
 
       return text;
     });
 
-    await step.run("post-comment", async () => {
-      await postReviewComment(token, owner, repo, prNumber, review);
+    // Update the initial comment with the actual review
+    await step.run("update-review-comment", async () => {
+      if (!commentId) {
+        throw new Error("Failed to get comment ID from initial comment");
+      }
+      await updateComment(
+        token,
+        owner,
+        repo,
+        commentId,
+        `## 🤖 AI Code Review\n\n${review}\n\n---\n*Powered by LetsReview*`
+      );
     });
 
     await step.run("save-review", async () => {
       const repository = await prisma.repository.findFirst({
-        where: {
-          owner,
-          name: repo,
-        },
+        where: { owner, name: repo },
       });
 
       if (repository) {
@@ -111,6 +191,7 @@ const nim = createOpenAICompatible({
         });
       }
     });
+
     return { success: true };
   }
 );
