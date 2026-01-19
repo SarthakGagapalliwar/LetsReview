@@ -34,11 +34,11 @@ export const generateReview = inngest.createFunction(
           accounts.accessToken,
           owner,
           repo,
-          prNumber
+          prNumber,
         );
 
         return { ...data, token: accounts.accessToken };
-      }
+      },
     );
 
     // Post initial "generating review" comment
@@ -51,7 +51,7 @@ export const generateReview = inngest.createFunction(
         `## 🤖 AI Code Review
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Codelessly/FlutterLoadingGIFs/master/packages/cupertino_activity_indicator.gif" width="40" alt="Loading..." />
+  <img src="https://raw.githubusercontent.com/SarthakGagapalliwar/LetsReview/main/public/thinking.gif" height="200" width="200" alt="Loading..." />
 </p>
 
 > [!NOTE]
@@ -71,7 +71,7 @@ export const generateReview = inngest.createFunction(
 
 ---
 *Powered by LetsReview*`,
-        true // return comment ID
+        true, // return comment ID
       );
     });
 
@@ -82,31 +82,55 @@ export const generateReview = inngest.createFunction(
     });
 
     const review = await step.run("generate-ai-review", async () => {
-      const prompt = `You are an expert code reviewer. Analyze the following pull request and provide a detailed, constructive code review.
+      // 1. System Instruction: Polyglot Persona
+      // We instruct the AI to identify the stack itself based on the code provided.
+      const systemInstruction = `You are a Principal Software Architect and Polyglot Developer. 
+      
+Your task is to review a Pull Request for a software project.
+First, analyze the provided code and context to determine the programming language(s) and framework(s) being used.
+Then, conduct a review based on the **idiomatic best practices** for that specific technology stack.
 
-PR Title: ${title}
-PR Description: ${description || "No description provided"}
+Your goals:
+1. **Correctness**: Ensure logic is sound and handles edge cases.
+2. **Security**: Look for common vulnerabilities (OWASP Top 10, Injection, Secrets).
+3. **Performance**: Identify algorithmic inefficiencies (e.g., O(n^2) loops) or resource leaks.
+4. **Maintainability**: Ensure code is clean, readable, and follows the existing patterns found in the Context.
 
-Context from Codebase:
-${context.join("\n\n")}
+Tone: Constructive, professional, and clear.`;
 
-Code Changes:
-\`\`\`diff
-${diff}
-\`\`\`
+      // 2. The User Prompt: Stack-Agnostic Inputs
+      const prompt = `${systemInstruction}
 
-Please provide:
-1. **Walkthrough**: A file-by-file explanation of the changes.
-2. **Sequence Diagram**: A Mermaid JS sequence diagram visualizing the flow of the changes (if applicable). Use \`\`\`mermaid ... \`\`\` block. **IMPORTANT**: Ensure the Mermaid syntax is valid. Do not use special characters (like quotes, braces, parentheses) inside Note text or labels as it breaks rendering. Keep the diagram simple.
-3. **Summary**: Brief overview.
-4. **Strengths**: What's done well.
-5. **Issues**: Bugs, security concerns, code smells.
-6. **Suggestions**: Specific code improvements.
-7. **Poem**: A short, creative poem summarizing the changes at the very end.
+    ---
+    ### 📝 PR Metadata
+    **Title:** ${title}
+    **Description:** ${description || "No description provided"}
 
-Format your response in markdown.
-Make sure to always close the formatting syntax whenever used. Make sure to not add --- at the end of the poem.
-`;
+    ---
+    ### 📚 Project Context (RAG)
+    *Use this context to understand the existing project structure, utility functions, and coding conventions.*
+
+    ${context.join("\n\n")}
+
+    ---
+    ### 🔄 Code Changes (Diff)
+    \`\`\`diff
+    ${diff}
+    \`\`\`
+
+    ---
+    ### Response Instructions
+    Analyze the code and provide the following in Markdown format:
+
+    1.  **📝 Summary**: High-level summary of the changes.
+    2.  **📊 Visualization**: A Mermaid JS sequence diagram for the critical logic flow. 
+        * Wrap in \`\`\`mermaid ... \`\`\`.
+        * **CRITICAL**: Use simple alphanumeric labels. Do NOT use braces {}, quotes "", or parentheses () inside node text.
+    3.  **🧭 Walkthrough**: A file-by-file explanation of the changes. Use emojis to indicate file roles and change types (e.g., 📄 file, ➕ added, ✏️ modified, ➖ removed, 🔧 config, 🧩 component).
+    4.  **🛡️ Security & Performance**: Specific issues regarding efficiency or safety. If none, state "No significant issues found."
+    5.  **💡 Code Suggestions**: Actionable refactoring or fixes. 
+        * Use code blocks.
+        * Explain *why* the change is recommended based on the detected language's best practices.`;
 
       const nim = createOpenAICompatible({
         name: "nim",
@@ -117,8 +141,11 @@ Make sure to always close the formatting syntax whenever used. Make sure to not 
       });
 
       const { text } = await generateText({
+        // Mistral Large is great, but DeepSeek R1 (if available on NIM) is clearer for logic.
+        // Sticking to Mistral Large for now as it follows complex formatting instructions well.
         model: nim.chatModel("moonshotai/kimi-k2-thinking"),
         prompt,
+        temperature: 0.2, // Lower temperature to reduce hallucinations in code analysis
       });
 
       return text;
@@ -134,7 +161,7 @@ Make sure to always close the formatting syntax whenever used. Make sure to not 
         owner,
         repo,
         commentId,
-        `## 🤖 AI Code Review\n\n${review}\n\n---\n*Powered by LetsReview*`
+        `## 🤖 AI Code Review\n\n${review}\n\n---\n*Powered by LetsReview*`,
       );
     });
 
@@ -160,5 +187,5 @@ Make sure to always close the formatting syntax whenever used. Make sure to not 
       }
     });
     return { success: true };
-  }
+  },
 );
