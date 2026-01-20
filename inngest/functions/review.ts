@@ -8,6 +8,8 @@ import { retrieveContext } from "@/module/ai/lib/rag";
 import { generateText } from "ai";
 import prisma from "@/lib/db";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { createOpenRouter, openrouter } from '@openrouter/ai-sdk-provider';
+
 
 export const generateReview = inngest.createFunction(
   { id: "generate-review", concurrency: 5 },
@@ -142,16 +144,20 @@ Analyze the code and provide the following in Markdown format:
     * **Maintainability**: Code modularity, separation of concerns, or readability improvements.
     * *Show code snippets for fixes.*`;
 
-      const nim = createOpenAICompatible({
-        name: "nim",
-        baseURL: "https://integrate.api.nvidia.com/v1",
-        headers: {
-          Authorization: `Bearer ${process.env.NIM_API_KEY}`,
-        },
+      // const nim = createOpenAICompatible({
+      //   name: "nim",
+      //   baseURL: "https://integrate.api.nvidia.com/v1",
+      //   headers: {
+      //     Authorization: `Bearer ${process.env.NIM_API_KEY}`,
+      //   },
+      // });
+
+      const openrouter = createOpenRouter({
+        apiKey: process.env.OPENROUTER_API_KEY,
       });
 
       const { text } = await generateText({
-        model: nim.chatModel("deepseek-ai/deepseek-v3.2"),
+        model: openrouter.chat("deepseek/deepseek-v3.2-speciale"),
         prompt,
         temperature: 0.2, // Keep low for precision
       });
