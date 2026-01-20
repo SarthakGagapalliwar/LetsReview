@@ -283,7 +283,7 @@ Analyze the code and provide the following in Markdown format:
       // });
 
       const { text } = await generateText({
-        model: openrouter.chat("deepseek/deepseek-v3.2"),
+        model: openrouter.chat("xiaomi/mimo-v2-flash:free"),
         prompt,
         temperature: 0.2,
       });
