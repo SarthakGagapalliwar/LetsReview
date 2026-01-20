@@ -2,7 +2,14 @@ import { Octokit } from "octokit";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/db";
 import { headers } from "next/headers";
-import { describe } from "zod/v4/core";
+
+// Configuration for file fetching safeguards
+const FILE_FETCH_CONFIG = {
+  maxDepth: 10, // Maximum directory depth to traverse
+  maxFiles: 500, // Maximum total files to fetch
+  maxFileSize: 100 * 1024, // 100KB max per file
+  maxDiffSize: 500 * 1024, // 500KB max diff size
+} as const;
 
 type ContributionCalendar = {
   totalContributions: number;
@@ -79,7 +86,7 @@ export async function fetchUserContribution(token: string, username: string) {
 
 export const getRespositories = async (
   page: number = 1,
-  perPage: number = 10
+  perPage: number = 10,
 ) => {
   const token = await getGithbToken();
   const octokit = new Octokit({ auth: token });
@@ -155,8 +162,26 @@ export async function getRepoFileContents(
   token: string,
   owner: string,
   repo: string,
-  path: string = ""
+  path: string = "",
+  depth: number = 0,
+  fileCount: { current: number } = { current: 0 },
 ): Promise<{ path: string; content: string }[]> {
+  // Safeguard: Check depth limit
+  if (depth > FILE_FETCH_CONFIG.maxDepth) {
+    console.warn(
+      `Max depth ${FILE_FETCH_CONFIG.maxDepth} reached at ${path}, skipping deeper directories`,
+    );
+    return [];
+  }
+
+  // Safeguard: Check file count limit
+  if (fileCount.current >= FILE_FETCH_CONFIG.maxFiles) {
+    console.warn(
+      `Max file count ${FILE_FETCH_CONFIG.maxFiles} reached, stopping file fetch`,
+    );
+    return [];
+  }
+
   const octokit = new Octokit({ auth: token });
   const { data } = await octokit.rest.repos.getContent({
     owner,
@@ -167,6 +192,7 @@ export async function getRepoFileContents(
   if (!Array.isArray(data)) {
     //it's a file
     if (data.type === "file" && data.content) {
+      fileCount.current++;
       return [
         {
           path: data.path,
@@ -180,28 +206,65 @@ export async function getRepoFileContents(
   let files: { path: string; content: string }[] = [];
 
   for (const item of data) {
+    // Check file count limit before each fetch
+    if (fileCount.current >= FILE_FETCH_CONFIG.maxFiles) {
+      break;
+    }
+
     if (item.type == "file") {
-      const { data: fileData } = await octokit.rest.repos.getContent({
-        owner,
-        repo,
-        path: item.path,
-      });
+      // Skip binary and non-code files
       if (
-        !Array.isArray(fileData) &&
-        fileData.type === "file" &&
-        fileData.content
+        item.path.match(
+          /\.(png|jpg|jpeg|gif|svg|ico|pdf|zip|tar|gz|woff|woff2|ttf|eot|mp3|mp4|mov|avi|lock)$/i,
+        )
       ) {
-        // Filter out non-code files if needed (images, etc.)
-        // For now, let's include everything that looks like text
-        if (!item.path.match(/\.(png|jpg|jpeg|gif|svg|ico|pdf|zip|tar|gz)$/i)) {
+        continue;
+      }
+
+      // Skip large files
+      if (item.size && item.size > FILE_FETCH_CONFIG.maxFileSize) {
+        console.warn(`Skipping large file ${item.path} (${item.size} bytes)`);
+        continue;
+      }
+
+      try {
+        const { data: fileData } = await octokit.rest.repos.getContent({
+          owner,
+          repo,
+          path: item.path,
+        });
+        if (
+          !Array.isArray(fileData) &&
+          fileData.type === "file" &&
+          fileData.content
+        ) {
           files.push({
             path: item.path,
             content: Buffer.from(fileData.content, "base64").toString("utf-8"),
           });
+          fileCount.current++;
         }
+      } catch (error) {
+        console.error(`Failed to fetch file ${item.path}:`, error);
       }
     } else if (item.type == "dir") {
-      const subFiles = await getRepoFileContents(token, owner, repo, item.path);
+      // Skip common non-essential directories
+      if (
+        item.path.match(
+          /^(node_modules|\.git|dist|build|\.next|coverage|__pycache__|venv|\.venv)$/i,
+        )
+      ) {
+        continue;
+      }
+
+      const subFiles = await getRepoFileContents(
+        token,
+        owner,
+        repo,
+        item.path,
+        depth + 1,
+        fileCount,
+      );
 
       files = files.concat(subFiles);
     }
@@ -213,7 +276,7 @@ export async function getPullRequestDiff(
   token: string,
   owner: string,
   repo: string,
-  prNumber: number
+  prNumber: number,
 ) {
   const octokit = new Octokit({ auth: token });
 
@@ -232,10 +295,23 @@ export async function getPullRequestDiff(
     },
   });
 
+  let diffString = diff as unknown as string;
+
+  // Safeguard: Truncate large diffs
+  if (diffString.length > FILE_FETCH_CONFIG.maxDiffSize) {
+    console.warn(
+      `Diff for ${owner}/${repo}#${prNumber} is ${diffString.length} bytes, truncating to ${FILE_FETCH_CONFIG.maxDiffSize}`,
+    );
+    diffString =
+      diffString.slice(0, FILE_FETCH_CONFIG.maxDiffSize) +
+      "\n\n... [Diff truncated due to size. Please review the full diff on GitHub.]";
+  }
+
   return {
-    diff: diff as unknown as string,
+    diff: diffString,
     title: pr.title,
     description: pr.body || "",
+    headSha: pr.head.sha,
   };
 }
 
@@ -245,7 +321,7 @@ export async function postReviewComment(
   repo: string,
   prNumber: number,
   review: string,
-  returnId: boolean = false
+  returnId: boolean = false,
 ): Promise<number | void> {
   const octokit = new Octokit({ auth: token });
 
@@ -266,7 +342,7 @@ export async function updateComment(
   owner: string,
   repo: string,
   commentId: number,
-  body: string
+  body: string,
 ) {
   const octokit = new Octokit({ auth: token });
 
@@ -276,4 +352,37 @@ export async function updateComment(
     comment_id: commentId,
     body,
   });
+}
+
+/**
+ * Find an existing LetsReview comment on a PR to update instead of creating a new one
+ */
+export async function findExistingReviewComment(
+  token: string,
+  owner: string,
+  repo: string,
+  prNumber: number,
+): Promise<number | null> {
+  const octokit = new Octokit({ auth: token });
+
+  try {
+    const { data: comments } = await octokit.rest.issues.listComments({
+      owner,
+      repo,
+      issue_number: prNumber,
+      per_page: 100,
+    });
+
+    // Find a comment that starts with our signature
+    const letsReviewComment = comments.find(
+      (comment) =>
+        comment.body?.startsWith("## 🤖 AI Code Review") ||
+        comment.body?.includes("*Powered by LetsReview*"),
+    );
+
+    return letsReviewComment?.id ?? null;
+  } catch (error) {
+    console.error("Error finding existing review comment:", error);
+    return null;
+  }
 }

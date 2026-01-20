@@ -2,88 +2,79 @@
 
 import { inngest } from "@/inngest/client";
 import prisma from "@/lib/db";
-import { getPullRequestDiff } from "@/module/github/lib/github";
-import { canCreateReview, incrementReviewCount } from "@/module/payment/lib/subscription";
+import { canCreateReview } from "@/module/payment/lib/subscription";
 
+/**
+ * Manually trigger a PR review (e.g., from dashboard)
+ * Note: Webhook-triggered reviews go directly to Inngest without this function
+ */
 export async function reviewPullRequest(
   owner: string,
   repo: string,
-  prNumber: number
+  prNumber: number,
+  headSha?: string,
 ) {
-  try {
-    const repository = await prisma.repository.findFirst({
-      where: {
-        owner,
-        name: repo,
-      },
-      include: {
-        user: {
-          include: {
-            accounts: {
-              where: {
-                providerId: "github",
-              },
+  const repository = await prisma.repository.findFirst({
+    where: {
+      owner,
+      name: repo,
+    },
+    include: {
+      user: {
+        include: {
+          accounts: {
+            where: {
+              providerId: "github",
             },
           },
         },
       },
-    });
+    },
+  });
 
-    if (!repository) {
-      throw new Error(
-        `Repository ${owner}/${repo} not found in database.Please reconnect the repository.`
-      );
-    }
+  if (!repository) {
+    throw new Error(
+      `Repository ${owner}/${repo} not found in database. Please reconnect the repository.`,
+    );
+  }
 
-    const canReview = await canCreateReview(repository.user.id , repository.id);
+  const canReview = await canCreateReview(repository.user.id, repository.id);
 
-    if(!canReview){
-      throw new Error("Review limit reached for this repository. Please upgrade to Pro unlimited review.");
-    }
+  if (!canReview) {
+    throw new Error(
+      "Review limit reached for this repository. Please upgrade to Pro for unlimited reviews.",
+    );
+  }
 
-    const githubAccount = repository.user.accounts[0];
-
-    if (!githubAccount?.accessToken) {
-      throw new Error("No Github access token found for repository owner");
-    }
-
-    const token = githubAccount.accessToken;
-
-    const { title } = await getPullRequestDiff(token, owner, repo, prNumber);
-
-    await inngest.send({
-      name: "pr.review.requested",
-      data: {
-        owner,
-        repo,
+  // Check for existing review with same headSha (idempotency)
+  if (headSha) {
+    const existingReview = await prisma.review.findFirst({
+      where: {
+        repositoryId: repository.id,
         prNumber,
-        userId: repository.user.id,
+        headSha,
       },
     });
 
-    await incrementReviewCount(repository.user.id, repository.id);
-
-    return { success: true, message: "Review Queued" };
-  } catch (error) {
-    try{
-      const repository = await prisma.repository.findFirst({
-        where:{owner, name:repo}
-      })
-      if(repository){
-        await prisma.review.create({
-          data:{
-            repositoryId:repository.id,
-            prNumber,
-            prTitle:"Failed to fetch PR",
-            prUrl:`https://github.com/${owner}/${repo}/pull/${prNumber}`,
-            review: `Error ${error instanceof Error ? error.message : "Unknown Error"}`,
-            status:"failed"
-          }
-        })
-      }
-    }
-    catch(dberror){
-      console.error("Field to save error to database: ",dberror);
+    if (existingReview) {
+      return {
+        success: true,
+        message: "Review already exists for this revision",
+      };
     }
   }
+
+  await inngest.send({
+    name: "pr.review.requested",
+    data: {
+      owner,
+      repo,
+      prNumber,
+      headSha,
+      userId: repository.user.id,
+      repositoryId: repository.id,
+    },
+  });
+
+  return { success: true, message: "Review queued" };
 }

@@ -349,7 +349,7 @@ export default function SubscriptionPage() {
             </div>
 
             <div className="mt-2">
-              <span className="text-3xl font-bold">$2.49</span>
+              <span className="text-3xl font-bold">$0.60</span>
               <span className="text-muted-foreground">/month</span>
             </div>
           </CardHeader>

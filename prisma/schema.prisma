@@ -13,44 +13,45 @@ model Test {
 }
 
 model User {
-  id            String       @id
+  id            String   @id
   name          String
   email         String
-  emailVerified Boolean      @default(false)
+  emailVerified Boolean  @default(false)
   image         String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  sessions      Session[]
-  accounts      Account[]
-  repositories  Repository[]
-  
-  usuage UserUsage?
-  subscriptionTier  String @default("FREE")
+  sessions     Session[]
+  accounts     Account[]
+  repositories Repository[]
+
+  usuage             UserUsage?
+  subscriptionTier   String     @default("FREE")
   subscriptionStatus String? //ACTIVE , CANCELLED, EXPIRED
 
-  polarCustomerId  String?  @unique
-  polarSubsriptionId  String?  @unique
-  
+  polarCustomerId    String? @unique
+  polarSubsriptionId String? @unique
+
   @@unique([email])
   @@map("user")
 }
 
 model Repository {
-  id        String   @id @default(cuid())
-  githubId  BigInt   @unique
-  name      String
-  owner     String
-  fullName  String
-  url       String
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  reviews   Review[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String        @id @default(cuid())
+  githubId     BigInt        @unique
+  name         String
+  owner        String
+  fullName     String
+  url          String
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviews      Review[]
+  reviewCounts ReviewCount[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
   @@index([userId])
-  @@map("respository")
+  @@map("repository")
 }
 
 model Review {
@@ -58,27 +59,44 @@ model Review {
   repositoryId String
   repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
 
-  prNumber Int
-  prTitle  String
-  prUrl    String
-  review   String @db.Text
-  status   String @default("completed") // completed, failed, pending
+  prNumber  Int
+  prTitle   String
+  prUrl     String
+  headSha   String? // SHA of the commit being reviewed for idempotency
+  commentId BigInt? // GitHub comment ID for reuse
+  review    String  @db.Text
+  status    String  @default("completed") // completed, failed, pending
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([repositoryId, prNumber, headSha]) // Idempotency: one review per PR revision
   @@index([repositoryId])
   @@map("review")
 }
 
+model ReviewCount {
+  id           String     @id @default(cuid())
+  userId       String
+  repositoryId String
+  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  count        Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([userId, repositoryId])
+  @@index([userId])
+  @@map("review_count")
+}
+
 model UserUsage {
-  id String @id @default(cuid())
-  userId String @unique
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  repositoryCount Int @default(0)
-  reviewCounts Json @default("{}") 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repositoryCount Int      @default(0)
+  reviewCounts    Json     @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@map("user_usage")
 }

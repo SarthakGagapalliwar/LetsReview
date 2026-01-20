@@ -57,6 +57,24 @@ async function getUserUsage(userId: string) {
   return usage;
 }
 
+/**
+ * Get review count for a specific repository using the new ReviewCount table
+ */
+async function getReviewCount(
+  userId: string,
+  repositoryId: string,
+): Promise<number> {
+  const reviewCount = await prisma.reviewCount.findUnique({
+    where: {
+      userId_repositoryId: {
+        userId,
+        repositoryId,
+      },
+    },
+  });
+  return reviewCount?.count ?? 0;
+}
+
 export async function canConnectRepository(userId: string): Promise<boolean> {
   const tier = await getUserTier(userId);
 
@@ -72,7 +90,7 @@ export async function canConnectRepository(userId: string): Promise<boolean> {
 
 export async function canCreateReview(
   userId: string,
-  repositoryId: string
+  repositoryId: string,
 ): Promise<boolean> {
   const tier = await getUserTier(userId);
 
@@ -80,9 +98,7 @@ export async function canCreateReview(
     return true; // Unlimited for pro users
   }
 
-  const usage = await getUserUsage(userId);
-  const reviewCounts = usage.reviewCounts as Record<string, number>;
-  const currentCount = reviewCounts[repositoryId] || 0;
+  const currentCount = await getReviewCount(userId, repositoryId);
   const limit = TIER_LIMITS.FREE.reviewPerRepo;
 
   return currentCount < limit;
@@ -118,27 +134,49 @@ export async function decrementRepositoryCount(userId: string): Promise<void> {
   });
 }
 
-export async function incrementReviewCount(
+/**
+ * Atomically increment review count using the new ReviewCount table
+ * This uses upsert with increment to prevent race conditions
+ */
+export async function incrementReviewCountAtomic(
   userId: string,
-  repositoryId: string
+  repositoryId: string,
 ): Promise<void> {
-  const usage = await getUserUsage(userId);
-  const reviewCounts = usage.reviewCounts as Record<string, number>;
-
-  reviewCounts[repositoryId] = (reviewCounts[repositoryId] || 0) + 1;
-
-  await prisma.userUsage.update({
-    where: { userId },
-    data: {
-      reviewCounts,
+  await prisma.reviewCount.upsert({
+    where: {
+      userId_repositoryId: {
+        userId,
+        repositoryId,
+      },
+    },
+    create: {
+      userId,
+      repositoryId,
+      count: 1,
+    },
+    update: {
+      count: {
+        increment: 1,
+      },
     },
   });
+}
+
+/**
+ * @deprecated Use incrementReviewCountAtomic instead
+ * Legacy function using JSON field - kept for backward compatibility
+ */
+export async function incrementReviewCount(
+  userId: string,
+  repositoryId: string,
+): Promise<void> {
+  // Migrate to atomic version
+  await incrementReviewCountAtomic(userId, repositoryId);
 }
 
 export async function getRemainingLimits(userId: string): Promise<UserLimits> {
   const tier = await getUserTier(userId);
   const usage = await getUserUsage(userId);
-  const reviewCounts = usage.reviewCounts as Record<string, number>;
 
   const limits: UserLimits = {
     tier,
@@ -157,9 +195,21 @@ export async function getRemainingLimits(userId: string): Promise<UserLimits> {
     select: { id: true },
   });
 
+  // Get review counts from the new ReviewCount table
+  const reviewCounts = await prisma.reviewCount.findMany({
+    where: {
+      userId,
+      repositoryId: { in: repositories.map((r) => r.id) },
+    },
+  });
+
+  const reviewCountMap = new Map(
+    reviewCounts.map((rc) => [rc.repositoryId, rc.count]),
+  );
+
   // Calculate limits for each repository
   for (const repo of repositories) {
-    const currentCount = reviewCounts[repo.id] || 0;
+    const currentCount = reviewCountMap.get(repo.id) ?? 0;
 
     limits.reviews[repo.id] = {
       current: currentCount,
@@ -175,7 +225,7 @@ export async function updateUserTier(
   userId: string,
   tier: SubscriptionTier,
   status: SubscriptionStatus,
-  polarSubscriptionId?: string
+  polarSubscriptionId?: string,
 ): Promise<void> {
   await prisma.user.update({
     where: { id: userId },
@@ -189,7 +239,7 @@ export async function updateUserTier(
 
 export async function updatePolarCustomerId(
   userId: string,
-  polarCustomerId: string
+  polarCustomerId: string,
 ): Promise<void> {
   await prisma.user.update({
     where: { id: userId },

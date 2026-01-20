@@ -29,34 +29,34 @@ import { google } from "@ai-sdk/google";
 const pineconeConfig = {
   listPageSize: Math.min(
     100,
-    Math.max(1, parseInt(process.env.PINECONE_LIST_PAGE_SIZE || "100"))
+    Math.max(1, parseInt(process.env.PINECONE_LIST_PAGE_SIZE || "100")),
   ),
   deleteBatchSize: Math.min(
     1000,
-    Math.max(1, parseInt(process.env.PINECONE_DELETE_BATCH_SIZE || "1000"))
+    Math.max(1, parseInt(process.env.PINECONE_DELETE_BATCH_SIZE || "1000")),
   ),
   maxPaginationIterations: Math.min(
     10000,
-    Math.max(1, parseInt(process.env.PINECONE_MAX_ITERATIONS || "1000"))
+    Math.max(1, parseInt(process.env.PINECONE_MAX_ITERATIONS || "1000")),
   ),
   maxOperationDurationMs: Math.min(
     600000,
-    Math.max(1000, parseInt(process.env.PINECONE_MAX_DURATION_MS || "300000"))
+    Math.max(1000, parseInt(process.env.PINECONE_MAX_DURATION_MS || "300000")),
   ),
   rateLimitDelayMs: Math.min(
     1000,
-    Math.max(0, parseInt(process.env.PINECONE_RATE_LIMIT_DELAY_MS || "50"))
+    Math.max(0, parseInt(process.env.PINECONE_RATE_LIMIT_DELAY_MS || "50")),
   ),
   maxRetryAttempts: Math.min(
     10,
-    Math.max(1, parseInt(process.env.PINECONE_MAX_RETRY_ATTEMPTS || "3"))
+    Math.max(1, parseInt(process.env.PINECONE_MAX_RETRY_ATTEMPTS || "3")),
   ),
   progressLogInterval: Math.min(
     100000,
     Math.max(
       100,
-      parseInt(process.env.PINECONE_PROGRESS_LOG_INTERVAL || "5000")
-    )
+      parseInt(process.env.PINECONE_PROGRESS_LOG_INTERVAL || "5000"),
+    ),
   ),
 } as const;
 
@@ -116,7 +116,7 @@ function extractValidIds(vectors: unknown[] | undefined): string[] {
         v != null &&
         typeof v === "object" &&
         "id" in v &&
-        typeof v.id === "string"
+        typeof v.id === "string",
     )
     .map((v) => v.id);
 }
@@ -127,7 +127,7 @@ function extractValidIds(vectors: unknown[] | undefined): string[] {
 async function withRetry<T>(
   operation: () => Promise<T>,
   operationName: string,
-  maxAttempts: number = MAX_RETRY_ATTEMPTS
+  maxAttempts: number = MAX_RETRY_ATTEMPTS,
 ): Promise<T> {
   let lastError: Error | undefined;
 
@@ -141,7 +141,7 @@ async function withRetry<T>(
         const backoffMs = RATE_LIMIT_DELAY_MS * Math.pow(2, attempt);
         console.warn(
           `${operationName} failed (attempt ${attempt}/${maxAttempts}). ` +
-            `Retrying in ${backoffMs}ms...`
+            `Retrying in ${backoffMs}ms...`,
         );
         await sleep(backoffMs);
       }
@@ -156,7 +156,7 @@ async function withRetry<T>(
  */
 function createTimeoutChecker(
   operationName: string,
-  maxDurationMs: number = MAX_OPERATION_DURATION_MS
+  maxDurationMs: number = MAX_OPERATION_DURATION_MS,
 ) {
   const startTime = Date.now();
 
@@ -164,7 +164,7 @@ function createTimeoutChecker(
     const elapsed = Date.now() - startTime;
     if (elapsed > maxDurationMs) {
       throw new Error(
-        `${operationName} exceeded maximum duration of ${maxDurationMs}ms (elapsed: ${elapsed}ms)`
+        `${operationName} exceeded maximum duration of ${maxDurationMs}ms (elapsed: ${elapsed}ms)`,
       );
     }
   };
@@ -185,7 +185,7 @@ function createTimeoutChecker(
  */
 async function* listVectorIdBatches(
   prefix: string,
-  checkTimeout?: () => void
+  checkTimeout?: () => void,
 ): AsyncGenerator<string[], void, undefined> {
   let paginationToken: string | undefined;
   let iterationCount = 0;
@@ -199,7 +199,7 @@ async function* listVectorIdBatches(
     if (iterationCount >= MAX_PAGINATION_ITERATIONS) {
       console.warn(
         `Hit maximum pagination iterations (${MAX_PAGINATION_ITERATIONS}) for prefix: ${prefix}. ` +
-          `Total vectors found: ${totalYielded}`
+          `Total vectors found: ${totalYielded}`,
       );
       break;
     }
@@ -211,7 +211,7 @@ async function* listVectorIdBatches(
           limit: LIST_PAGE_SIZE,
           ...(paginationToken && { paginationToken }),
         }),
-      `List vectors (iteration ${iterationCount + 1})`
+      `List vectors (iteration ${iterationCount + 1})`,
     );
 
     const batchIds = extractValidIds(listResult.vectors);
@@ -222,7 +222,7 @@ async function* listVectorIdBatches(
       // Progress logging
       if (totalYielded % PROGRESS_LOG_INTERVAL < batchIds.length) {
         console.log(
-          `Found ${totalYielded} vectors so far for prefix: ${prefix}`
+          `Found ${totalYielded} vectors so far for prefix: ${prefix}`,
         );
       }
 
@@ -267,11 +267,11 @@ export interface DeletionStats {
 export class PartialDeletionError extends Error {
   constructor(
     public readonly stats: DeletionStats,
-    public readonly repoId: string
+    public readonly repoId: string,
   ) {
     super(
       `Partial deletion for ${repoId}: ${stats.totalDeleted}/${stats.totalFound} vectors deleted. ` +
-        `${stats.failedBatches} batches failed after retries.`
+        `${stats.failedBatches} batches failed after retries.`,
     );
     this.name = "PartialDeletionError";
   }
@@ -289,30 +289,189 @@ export async function generateEmbedding(text: string) {
   return embedding;
 }
 
+// ============================================================================
+// Chunking Configuration
+// ============================================================================
+
+const CHUNK_CONFIG = {
+  maxChunkSize: 1500, // ~375 tokens, safe for embedding models
+  overlapSize: 200, // Overlap for context continuity
+  concurrencyLimit: 5, // Bounded parallel embedding
+} as const;
+
+/**
+ * Split content into overlapping chunks with semantic breaks
+ * Prefers breaking at function/class boundaries, then newlines, then arbitrary
+ */
+function chunkContent(content: string, filePath: string): string[] {
+  const { maxChunkSize, overlapSize } = CHUNK_CONFIG;
+
+  if (content.length <= maxChunkSize) {
+    return [`File: ${filePath}\n\n${content}`];
+  }
+
+  const chunks: string[] = [];
+  let startIndex = 0;
+
+  // Patterns for semantic breaks (prioritized)
+  const breakPatterns = [
+    /\n(?=(?:export\s+)?(?:function|class|interface|type|const|let|var|def|async\s+function)\s)/g, // Function/class definitions
+    /\n\n+/g, // Double newlines (paragraph breaks)
+    /\n/g, // Single newlines
+  ];
+
+  while (startIndex < content.length) {
+    let endIndex = Math.min(startIndex + maxChunkSize, content.length);
+
+    // If not at the end, try to find a semantic break point
+    if (endIndex < content.length) {
+      let bestBreak = -1;
+
+      for (const pattern of breakPatterns) {
+        pattern.lastIndex = startIndex + maxChunkSize - overlapSize;
+        const searchRegion = content.slice(startIndex, endIndex);
+
+        // Find the last match within our chunk
+        let match;
+        const localPattern = new RegExp(pattern.source, "g");
+        while ((match = localPattern.exec(searchRegion)) !== null) {
+          if (match.index + startIndex < endIndex) {
+            bestBreak = match.index + startIndex + match[0].length;
+          }
+        }
+
+        if (bestBreak > startIndex + maxChunkSize / 2) {
+          break; // Found a good break point
+        }
+      }
+
+      if (bestBreak > startIndex) {
+        endIndex = bestBreak;
+      }
+    }
+
+    const chunkContent = content.slice(startIndex, endIndex).trim();
+    if (chunkContent.length > 0) {
+      chunks.push(
+        `File: ${filePath} [chunk ${chunks.length + 1}]\n\n${chunkContent}`,
+      );
+    }
+
+    // Move start with overlap
+    startIndex = endIndex - overlapSize;
+    if (startIndex >= content.length) break;
+  }
+
+  return chunks;
+}
+
+/**
+ * Process items with bounded concurrency
+ */
+async function processWithConcurrency<T, R>(
+  items: T[],
+  processor: (item: T) => Promise<R>,
+  concurrencyLimit: number,
+): Promise<R[]> {
+  const results: R[] = [];
+  const executing: Promise<void>[] = [];
+
+  for (const item of items) {
+    const promise = processor(item).then((result) => {
+      results.push(result);
+    });
+
+    executing.push(promise);
+
+    if (executing.length >= concurrencyLimit) {
+      await Promise.race(executing);
+      // Remove completed promises
+      for (let i = executing.length - 1; i >= 0; i--) {
+        const p = executing[i];
+        // Check if promise is settled by racing with resolved promise
+        const settled = await Promise.race([
+          p.then(() => true).catch(() => true),
+          Promise.resolve(false),
+        ]);
+        if (settled) {
+          executing.splice(i, 1);
+        }
+      }
+    }
+  }
+
+  await Promise.all(executing);
+  return results;
+}
+
 export async function indexCodebase(
   repoId: string,
-  files: { path: string; content: string }[]
+  files: { path: string; content: string }[],
 ) {
-  const vectors = [];
+  console.log(`Starting indexing for ${repoId} with ${files.length} files`);
+
+  // Prepare all chunks
+  const allChunks: { path: string; content: string; chunkIndex: number }[] = [];
 
   for (const file of files) {
-    const content = `File: ${file.path}\n\n${file.content}`;
-    const truncatedContent = content.slice(0, 8000);
+    const chunks = chunkContent(file.content, file.path);
+    chunks.forEach((chunk, index) => {
+      allChunks.push({ path: file.path, content: chunk, chunkIndex: index });
+    });
+  }
+
+  console.log(`Created ${allChunks.length} chunks from ${files.length} files`);
+
+  // Generate embeddings with bounded concurrency
+  const vectors: Array<{
+    id: string;
+    values: number[];
+    metadata: {
+      repoId: string;
+      path: string;
+      content: string;
+      chunkIndex: number;
+    };
+  }> = [];
+
+  const embedChunk = async (chunk: {
+    path: string;
+    content: string;
+    chunkIndex: number;
+  }) => {
+    const truncatedContent = chunk.content.slice(0, 8000);
 
     try {
       const embedding = await generateEmbedding(truncatedContent);
 
-      vectors.push({
-        id: `${repoId}-${file.path.replace(/\//g, "_")}`,
+      return {
+        id: `${repoId}-${chunk.path.replace(/\//g, "_")}-chunk${chunk.chunkIndex}`,
         values: embedding,
         metadata: {
           repoId,
-          path: file.path,
+          path: chunk.path,
           content: truncatedContent,
+          chunkIndex: chunk.chunkIndex,
         },
-      });
+      };
     } catch (error) {
-      console.error(`Failed to embed ${file.path}`, error);
+      console.error(
+        `Failed to embed ${chunk.path} chunk ${chunk.chunkIndex}:`,
+        error,
+      );
+      return null;
+    }
+  };
+
+  const results = await processWithConcurrency(
+    allChunks,
+    embedChunk,
+    CHUNK_CONFIG.concurrencyLimit,
+  );
+
+  for (const result of results) {
+    if (result) {
+      vectors.push(result);
     }
   }
 
@@ -321,21 +480,86 @@ export async function indexCodebase(
 
     for (let i = 0; i < vectors.length; i += batchSize) {
       const batch = vectors.slice(i, i + batchSize);
-
       await pineconeIndex.upsert(batch);
     }
   }
 
-  console.log("indexing complete");
+  console.log(
+    `Indexing complete: ${vectors.length} vectors created for ${repoId}`,
+  );
 }
 
+/**
+ * Extract file paths from a unified diff
+ */
+export function extractFilePathsFromDiff(diff: string): string[] {
+  const paths: Set<string> = new Set();
+
+  // Match +++ b/path/to/file or --- a/path/to/file
+  const diffPathPattern = /^(?:\+\+\+|---)\s+[ab]\/(.+)$/gm;
+  let match;
+
+  while ((match = diffPathPattern.exec(diff)) !== null) {
+    const path = match[1];
+    if (path && path !== "/dev/null") {
+      paths.add(path);
+    }
+  }
+
+  return Array.from(paths);
+}
+
+/**
+ * Retrieve context with diff-scoped targeting
+ * Prioritizes files that were changed in the diff
+ */
 export async function retrieveContext(
   query: string,
   repoId: string,
-  topK: number = 5
+  topK: number = 5,
+  changedFilePaths?: string[],
 ) {
   const embedding = await generateEmbedding(query);
 
+  // If we have changed file paths, retrieve context specifically from those files first
+  if (changedFilePaths && changedFilePaths.length > 0) {
+    const scopedResults = await pineconeIndex.query({
+      vector: embedding,
+      filter: {
+        repoId,
+        path: { $in: changedFilePaths },
+      },
+      topK: Math.ceil(topK * 0.7), // 70% from changed files
+      includeMetadata: true,
+    });
+
+    const generalResults = await pineconeIndex.query({
+      vector: embedding,
+      filter: {
+        repoId,
+        path: { $nin: changedFilePaths },
+      },
+      topK: Math.ceil(topK * 0.3), // 30% from other files for broader context
+      includeMetadata: true,
+    });
+
+    const allMatches = [...scopedResults.matches, ...generalResults.matches];
+
+    // Sort by score and dedupe
+    const seen = new Set<string>();
+    return allMatches
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+      .filter((match) => {
+        const content = match.metadata?.content as string;
+        if (!content || seen.has(content)) return false;
+        seen.add(content);
+        return true;
+      })
+      .slice(0, topK)
+      .map((match) => match.metadata?.content as string);
+  }
+
+  // Fallback to standard retrieval
   const results = await pineconeIndex.query({
     vector: embedding,
     filter: { repoId },
@@ -360,7 +584,7 @@ export async function retrieveContext(
  * @throws Error if repoId is invalid or operation times out
  */
 export async function deleteRepositoryVectors(
-  repoId: string
+  repoId: string,
 ): Promise<DeletionStats> {
   const startTime = Date.now();
 
@@ -370,7 +594,7 @@ export async function deleteRepositoryVectors(
   const prefix = `${repoId}-`;
   const checkTimeout = createTimeoutChecker(
     `Delete vectors for ${repoId}`,
-    MAX_OPERATION_DURATION_MS
+    MAX_OPERATION_DURATION_MS,
   );
 
   const stats: DeletionStats = {
@@ -400,14 +624,14 @@ export async function deleteRepositoryVectors(
         try {
           await withRetry(
             () => pineconeIndex.deleteMany(deleteBatch),
-            `Delete batch of ${deleteBatch.length} vectors`
+            `Delete batch of ${deleteBatch.length} vectors`,
           );
           stats.totalDeleted += deleteBatch.length;
         } catch (error) {
           stats.failedBatches++;
           console.error(
             `Failed to delete batch after ${MAX_RETRY_ATTEMPTS} attempts:`,
-            error
+            error,
           );
           // Continue with remaining batches instead of failing completely
         }
@@ -424,14 +648,14 @@ export async function deleteRepositoryVectors(
       try {
         await withRetry(
           () => pineconeIndex.deleteMany(pendingIds),
-          `Delete final batch of ${pendingIds.length} vectors`
+          `Delete final batch of ${pendingIds.length} vectors`,
         );
         stats.totalDeleted += pendingIds.length;
       } catch (error) {
         stats.failedBatches++;
         console.error(
           `Failed to delete final batch after ${MAX_RETRY_ATTEMPTS} attempts:`,
-          error
+          error,
         );
       }
     }
@@ -449,7 +673,7 @@ export async function deleteRepositoryVectors(
         `Partial deletion completed for ${repoId}. ` +
           `Deleted ${stats.totalDeleted}/${stats.totalFound} vectors. ` +
           `Failed batches: ${stats.failedBatches}. ` +
-          `Duration: ${stats.durationMs}ms`
+          `Duration: ${stats.durationMs}ms`,
       );
       // Throw error for partial failures so callers can handle appropriately
       throw new PartialDeletionError(stats, repoId);
@@ -457,7 +681,7 @@ export async function deleteRepositoryVectors(
 
     console.log(
       `Successfully deleted ${stats.totalDeleted} vectors for repository: ${repoId}. ` +
-        `Duration: ${stats.durationMs}ms`
+        `Duration: ${stats.durationMs}ms`,
     );
 
     return stats;
@@ -471,7 +695,7 @@ export async function deleteRepositoryVectors(
 
     console.error(
       `Failed to delete vectors for ${repoId} after ${stats.durationMs}ms:`,
-      error
+      error,
     );
     throw error;
   }
@@ -489,7 +713,7 @@ export async function deleteRepositoryVectors(
  * @returns Promise that resolves when deletion is complete
  */
 export async function deleteRepositoryVectorsByMetadata(
-  repoId: string
+  repoId: string,
 ): Promise<void> {
   validateRepoId(repoId);
 
@@ -499,7 +723,7 @@ export async function deleteRepositoryVectorsByMetadata(
         pineconeIndex.deleteMany({
           filter: { repoId: { $eq: repoId } },
         }),
-      `Delete vectors by metadata for ${repoId}`
+      `Delete vectors by metadata for ${repoId}`,
     );
 
     console.log(`Deleted all vectors with repoId metadata: ${repoId}`);
