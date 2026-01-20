@@ -27,7 +27,7 @@ export const auth = betterAuth({
   trustedOrigins: [
     "http://localhost:3000",
     "https://addisyn-strikebound-nonperceivably.ngrok-free.dev",
-    "https://lets-review-zeta.vercel.app"
+    "https://lets-review-zeta.vercel.app",
   ],
   plugins: [
     polar({
@@ -37,18 +37,22 @@ export const auth = betterAuth({
         checkout({
           products: [
             {
-              productId: "d5f87b04-efd0-4143-831b-4e47152359e4",
+              productId:
+                process.env.POLAR_PRODUCT_ID ||
+                "d5f87b04-efd0-4143-831b-4e47152359e4",
               slug: "pro", // Custom slug for easy reference in Checkout URL, e.g. /checkout/letsReview
             },
           ],
           successUrl:
             process.env.POLAR_SUCCESS_URL ||
-            "/dashboard/subscriptions?success=true",
+            process.env.NEXT_PUBLIC_APP_BASE_URL
+              ? `${process.env.NEXT_PUBLIC_APP_BASE_URL}/dashboard/subscriptions?success=true`
+              : "/dashboard/subscriptions?success=true",
           authenticatedUsersOnly: true,
         }),
         portal({
           returnUrl:
-            process.env.NEXT_PUBLIC_APP_URL ||
+            process.env.NEXT_PUBLIC_APP_BASE_URL ||
             "http://localhost:3000/dashboard",
         }),
         usage(),
@@ -59,7 +63,7 @@ export const auth = betterAuth({
               "[Polar Webhook] onSubscriptionCreated:",
               payload.data.id,
               "Status:",
-              payload.data.status
+              payload.data.status,
             );
             const customer = payload.data.customer;
             // externalId is the user's ID in our database (set by createCustomerOnSignUp)
@@ -67,7 +71,7 @@ export const auth = betterAuth({
 
             if (!userId) {
               console.log(
-                "[Polar Webhook] No externalId found, trying polarCustomerId lookup"
+                "[Polar Webhook] No externalId found, trying polarCustomerId lookup",
               );
               const user = await prisma.user.findUnique({
                 where: { polarCustomerId: payload.data.customerId },
@@ -76,7 +80,7 @@ export const auth = betterAuth({
                 await updateUserTier(user.id, "PRO", "ACTIVE", payload.data.id);
                 console.log(
                   "[Polar Webhook] Updated user tier to PRO for:",
-                  user.id
+                  user.id,
                 );
               }
               return;
@@ -84,27 +88,27 @@ export const auth = betterAuth({
 
             console.log(
               "[Polar Webhook] Found userId from externalId:",
-              userId
+              userId,
             );
             if (payload.data.status === "active") {
               await updateUserTier(userId, "PRO", "ACTIVE", payload.data.id);
               console.log(
                 "[Polar Webhook] Updated user tier to PRO for:",
-                userId
+                userId,
               );
             }
           },
           onSubscriptionActive: async (payload) => {
             console.log(
               "[Polar Webhook] onSubscriptionActive:",
-              payload.data.id
+              payload.data.id,
             );
             const customer = payload.data.customer;
             const userId = customer?.externalId;
 
             if (!userId) {
               console.log(
-                "[Polar Webhook] No externalId found, trying polarCustomerId lookup"
+                "[Polar Webhook] No externalId found, trying polarCustomerId lookup",
               );
               const user = await prisma.user.findUnique({
                 where: { polarCustomerId: payload.data.customerId },
@@ -113,7 +117,7 @@ export const auth = betterAuth({
                 await updateUserTier(user.id, "PRO", "ACTIVE", payload.data.id);
                 console.log(
                   "[Polar Webhook] Updated user tier to PRO for:",
-                  user.id
+                  user.id,
                 );
               }
               return;
@@ -121,18 +125,18 @@ export const auth = betterAuth({
 
             console.log(
               "[Polar Webhook] Found userId from externalId:",
-              userId
+              userId,
             );
             await updateUserTier(userId, "PRO", "ACTIVE", payload.data.id);
             console.log(
               "[Polar Webhook] Updated user tier to PRO for:",
-              userId
+              userId,
             );
           },
           onSubscriptionCanceled: async (payload) => {
             console.log(
               "[Polar Webhook] onSubscriptionCanceled:",
-              payload.data.id
+              payload.data.id,
             );
             const customer = payload.data.customer;
             const userId = customer?.externalId;
@@ -163,7 +167,7 @@ export const auth = betterAuth({
           onSubscriptionRevoked: async (payload) => {
             console.log(
               "[Polar Webhook] onSubscriptionRevoked:",
-              payload.data.id
+              payload.data.id,
             );
             const customer = payload.data.customer;
             const userId = customer?.externalId;
@@ -190,7 +194,7 @@ export const auth = betterAuth({
               "Email:",
               payload.data.email,
               "ExternalId:",
-              payload.data.externalId
+              payload.data.externalId,
             );
             // If externalId is set, it means createCustomerOnSignUp worked correctly
             // and we can update the polarCustomerId for that user
@@ -200,7 +204,7 @@ export const auth = betterAuth({
               await updatePolarCustomerId(userId, payload.data.id);
               console.log(
                 "[Polar Webhook] Updated polarCustomerId for user:",
-                userId
+                userId,
               );
               return;
             }
@@ -213,13 +217,13 @@ export const auth = betterAuth({
             });
             console.log(
               "[Polar Webhook] Found user by email for customer created:",
-              user?.id
+              user?.id,
             );
             if (user) {
               await updatePolarCustomerId(user.id, payload.data.id);
               console.log(
                 "[Polar Webhook] Updated polarCustomerId for user:",
-                user.id
+                user.id,
               );
             }
           },
