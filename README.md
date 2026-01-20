@@ -9,7 +9,7 @@ LetsReview is an AI-powered code review platform that automatically reviews your
 - 🤖 **AI-Powered Reviews** - Automatic code reviews using NVIDIA NIM (DeepSeek)
 - 📚 **Contextual Understanding** - RAG with Pinecone indexes your codebase for relevant context
 - 🔗 **GitHub Integration** - Seamless webhook integration for PR events
-- 💳 **Subscription Tiers** - Free tier (5 repos, 5 reviews/repo) and Pro unlimited via Polar.sh
+- ⭐ **Star-Based Pro** - Free tier (5 repos, 5 reviews/repo), star our repo for unlimited Pro access
 - 🔄 **Auto Re-indexing** - Codebase automatically re-indexed on push to default branch
 
 ## Tech Stack
@@ -20,7 +20,6 @@ LetsReview is an AI-powered code review platform that automatically reviews your
 - **AI**: NVIDIA NIM API (DeepSeek), Vercel AI SDK
 - **Vector DB**: Pinecone
 - **Background Jobs**: Inngest
-- **Payments**: Polar.sh
 - **UI**: shadcn/ui, Tailwind CSS, lucide-react
 
 ## Getting Started
@@ -33,14 +32,13 @@ LetsReview is an AI-powered code review platform that automatically reviews your
 - Pinecone account
 - NVIDIA NIM API key
 
-
 ## Project Structure
 
 ```
 letsreview/
 ├── app/                    # Next.js App Router
 │   ├── api/
-│   │   ├── webhooks/       # GitHub & Polar webhooks
+│   │   ├── webhooks/       # GitHub webhooks
 │   │   └── inngest/        # Inngest endpoint
 │   └── dashboard/          # Protected dashboard pages
 ├── module/                 # Feature modules
@@ -69,5 +67,3 @@ letsreview/
 3. **PR Webhook** - GitHub sends webhook when PR is opened/updated
 4. **Generate Review** - AI generates review with RAG context from codebase
 5. **Post Comment** - Review is posted as a comment on the PR
-
-

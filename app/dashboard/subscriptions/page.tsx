@@ -9,16 +9,28 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, X, Loader2, ExternalLink, RefreshCw } from "lucide-react";
+import {
+  Check,
+  X,
+  Loader2,
+  ExternalLink,
+  RefreshCw,
+  Star,
+  Github,
+} from "lucide-react";
 
-import { checkout, customer } from "@/lib/auth-client";
 import { useSearchParams } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useQuery } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { getSubscriptionData, syncSubscriptionStatus } from "@/module/payment/action";
+import {
+  getSubscriptionData,
+  syncSubscriptionStatus,
+} from "@/module/payment/action";
 import { Spinner } from "@/components/ui/spinner";
+import { fireStarConfetti } from "@/components/ui/confetti";
+import { Highlighter } from "@/components/ui/highlighter";
 
 const PLAN_FEATURES = {
   free: [
@@ -40,9 +52,10 @@ const PLAN_FEATURES = {
 };
 
 export default function SubscriptionPage() {
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [portalLoading, setPortalLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
+  const [previouslyStarred, setPreviouslyStarred] = useState<boolean | null>(
+    null,
+  );
   const searchParams = useSearchParams();
   const success = searchParams.get("success");
 
@@ -52,24 +65,25 @@ export default function SubscriptionPage() {
     refetchOnWindowFocus: true,
   });
 
+  // Track if user was previously starred to detect new stars
   useEffect(() => {
-  if (success === "true") {
+    if (data?.user && previouslyStarred === null) {
+      setPreviouslyStarred(data.user.starredRepo);
+    }
+  }, [data, previouslyStarred]);
+
+  // Auto-sync on page load to check latest star status
+  useEffect(() => {
     const sync = async () => {
       try {
-        await syncSubscriptionStatus()
-        refetch()
+        await syncSubscriptionStatus();
+        refetch();
       } catch (e) {
-        console.error(
-          "Failed to sync subscription on success return",
-          e
-        )
+        console.error("Failed to sync star status on load", e);
       }
-    }
-
-    sync()
-  }
-}, [success,refetch])
-
+    };
+    sync();
+  }, [refetch]);
 
   if (isLoading) {
     return (
@@ -124,57 +138,41 @@ export default function SubscriptionPage() {
     );
   }
 
-  const currentTire = data.user.subscriptionTier as "FREE" | "PRO";
-  const isPro = currentTire === "PRO";
-  const isActive = data.user.subscriptionStatus === "ACTIVE";
+  const currentTier = data.user.subscriptionTier as "FREE" | "PRO";
+  const isPro = currentTier === "PRO";
+  const hasStarred = data.user.starredRepo;
 
   const handleSync = async () => {
-  try {
-    setSyncLoading(true)
-    const result = await syncSubscriptionStatus()
+    try {
+      setSyncLoading(true);
+      const result = await syncSubscriptionStatus();
 
-    if (result.success) {
-      toast.success("Subscription status updated")
-      refetch()
-    } else {
-      toast.error("Failed to sync subscription")
+      if (result.success) {
+        if (result.hasStarred) {
+          // Fire confetti if this is a new star (wasn't starred before)
+          if (!previouslyStarred) {
+            fireStarConfetti();
+          }
+          setPreviouslyStarred(true);
+          toast.success("⭐ Thank you for starring! Pro access activated.");
+        } else {
+          setPreviouslyStarred(false);
+          toast.info("Star our repo to unlock Pro features!");
+        }
+        refetch();
+      } else {
+        toast.error(result.message || "Failed to check star status");
+      }
+    } catch (error) {
+      toast.error("Failed to sync subscription");
+    } finally {
+      setSyncLoading(false);
     }
-  } catch (error) {
-    toast.error("Failed to sync subscription")
-  } finally {
-    setSyncLoading(false)
-  }
-}
+  };
 
-  const handleUpgrade = async () => {
-  try {
-    setCheckoutLoading(true)
-
-    await checkout({
-      slug: "pro",
-    })
-  } catch (error) {
-    console.error("Failed to initiate checkout:", error)
-    setCheckoutLoading(false)
-  }
-  finally{
-    setCheckoutLoading(false)
-  }
-}
-
-  const handleManageSubscription = async () => {
-  try {
-    setPortalLoading(true)
-    await customer.portal()
-  } catch (error) {
-    console.error("Failed to open portal:", error)
-    setPortalLoading(false)
-  }
-  finally{
-    setCheckoutLoading(false)
-  }
-}
-
+  const handleStarRepo = () => {
+    window.open(data.repoUrl, "_blank");
+  };
 
   return (
     <div className="space-y-6">
@@ -184,7 +182,11 @@ export default function SubscriptionPage() {
             Subscription Plans
           </h1>
           <p className="text-muted-foreground">
-            Choose the perfect plan for your needs
+            Star our repository to unlock{" "}
+            <Highlighter action="highlight" color="#FFD700">
+              Pro features for free
+            </Highlighter>{" "}
+            - no credit card required!
           </p>
         </div>
 
@@ -199,7 +201,7 @@ export default function SubscriptionPage() {
           ) : (
             <RefreshCw className="h-4 w-4 mr-2" />
           )}
-          Sync Status
+          Check Star Status
         </Button>
       </div>
 
@@ -208,8 +210,47 @@ export default function SubscriptionPage() {
           <Check className="h-4 w-4 text-green-600" />
           <AlertTitle>Success!</AlertTitle>
           <AlertDescription>
-            Your subscription has been updated successfully. Changes may take a
-            few moments to reflect.
+            Your subscription has been updated successfully.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Star CTA Banner */}
+      {!hasStarred && (
+        <Card className="border-yellow-500 bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-950 dark:to-orange-950">
+          <CardContent className="flex items-center justify-between ">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-yellow-500 rounded-full">
+                <Star className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-sm">
+                  Get{" "}
+                  <Highlighter action="underline" color="#F59E0B">
+                    $10/month Pro Plan
+                  </Highlighter>{" "}
+                  for FREE!
+                </h3>
+                <p className="text-muted-foreground text-xs">
+                  Star our GitHub repository to unlock all Pro features.
+                </p>
+              </div>
+            </div>
+            <Button onClick={handleStarRepo} size="sm" className="gap-1.5">
+              <Github className="h-3.5 w-3.5" />
+              Star on GitHub
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {hasStarred && (
+        <Alert className="border-green-500 bg-green-50 dark:bg-green-950">
+          <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+          <AlertTitle>Thank you for starring! ⭐</AlertTitle>
+          <AlertDescription>
+            You have Pro access. Keep the star to maintain your Pro benefits. If
+            you unstar, you&apos;ll be downgraded to the Free plan.
           </AlertDescription>
         </Alert>
       )}
@@ -254,7 +295,7 @@ export default function SubscriptionPage() {
                             (data.limits.repositories.current /
                               data.limits.repositories.limit) *
                               100,
-                            100
+                            100,
                           )}%`
                         : "0%",
                     }}
@@ -291,37 +332,28 @@ export default function SubscriptionPage() {
             <div className="flex items-start justify-between">
               <div>
                 <CardTitle>Free</CardTitle>
-                <CardDescription>
-                  Perfect for getting started
-                </CardDescription>
+                <CardDescription>Perfect for getting started</CardDescription>
               </div>
               {!isPro && <Badge className="ml-2">Current Plan</Badge>}
             </div>
 
             <div className="mt-2">
               <span className="text-3xl font-bold">$0</span>
-              <span className="text-muted-foreground">/month</span>
+              <span className="text-muted-foreground">/forever</span>
             </div>
           </CardHeader>
 
           <CardContent className="space-y-4">
             <div className="space-y-2">
               {PLAN_FEATURES.free.map((feature) => (
-                <div
-                  key={feature.name}
-                  className="flex items-center gap-2"
-                >
+                <div key={feature.name} className="flex items-center gap-2">
                   {feature.included ? (
                     <Check className="h-4 w-4 text-primary shrink-0" />
                   ) : (
                     <X className="h-4 w-4 text-muted-foreground shrink-0" />
                   )}
                   <span
-                    className={
-                      feature.included
-                        ? ""
-                        : "text-muted-foreground"
-                    }
+                    className={feature.included ? "" : "text-muted-foreground"}
                   >
                     {feature.name}
                   </span>
@@ -330,48 +362,52 @@ export default function SubscriptionPage() {
             </div>
 
             <Button className="w-full" variant="outline" disabled>
-              {isPro ? "Downgrade" : "Current Plan"}
+              {isPro ? "Downgrade by Unstarring" : "Current Plan"}
             </Button>
           </CardContent>
         </Card>
 
         {/* Pro Plan */}
-        <Card className={isPro ? "ring-2 ring-primary" : ""}>
+        <Card
+          className={isPro ? "ring-2 ring-primary" : "ring-2 ring-yellow-500"}
+        >
           <CardHeader>
             <div className="flex items-start justify-between">
               <div>
-                <CardTitle>Pro</CardTitle>
-                <CardDescription>
-                  For professional developers
-                </CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                  Pro
+                  <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                </CardTitle>
+                <CardDescription>For professional developers</CardDescription>
               </div>
               {isPro && <Badge className="ml-2">Current Plan</Badge>}
             </div>
 
-            <div className="mt-2">
-              <span className="text-3xl font-bold">$0.60</span>
-              <span className="text-muted-foreground">/month</span>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-xl font-medium text-muted-foreground line-through decoration-2">
+                $10
+              </span>
+              <span className="text-3xl font-bold">
+                FREE
+              </span>
+              <span className="text-muted-foreground">with ⭐</span>
             </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Just star our repo - save $120/year!
+            </p>
           </CardHeader>
 
           <CardContent className="space-y-4">
             <div className="space-y-2">
               {PLAN_FEATURES.pro.map((feature) => (
-                <div
-                  key={feature.name}
-                  className="flex items-center gap-2"
-                >
+                <div key={feature.name} className="flex items-center gap-2">
                   {feature.included ? (
                     <Check className="h-4 w-4 text-primary shrink-0" />
                   ) : (
                     <X className="h-4 w-4 text-muted-foreground shrink-0" />
                   )}
                   <span
-                    className={
-                      feature.included
-                        ? ""
-                        : "text-muted-foreground"
-                    }
+                    className={feature.included ? "" : "text-muted-foreground"}
                   >
                     {feature.name}
                   </span>
@@ -379,45 +415,32 @@ export default function SubscriptionPage() {
               ))}
             </div>
 
-            {isPro && isActive ? (
+            {isPro && hasStarred ? (
               <Button
                 className="w-full"
                 variant="outline"
-                onClick={handleManageSubscription}
-                disabled={portalLoading}
+                onClick={handleStarRepo}
               >
-                {portalLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Opening Portal...
-                  </>
-                ) : (
-                  <>
-                    Manage Subscription
-                    <ExternalLink className="ml-2 h-4 w-4" />
-                  </>
-                )}
+                <Star className="mr-2 h-4 w-4 text-yellow-500 fill-yellow-500" />
+                Thanks for Starring!
+                <ExternalLink className="ml-2 h-4 w-4" />
               </Button>
             ) : (
               <Button
-                className="w-full"
-                onClick={handleUpgrade}
-                disabled={checkoutLoading}
+                className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600"
+                onClick={handleStarRepo}
               >
-                {checkoutLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Loading Checkout...
-                  </>
-                ) : (
-                  "Upgrade to Pro"
-                )}
+                <Github className="mr-2 h-4 w-4" />
+                Star to Unlock Pro
               </Button>
             )}
+
+            <p className="text-xs text-center text-muted-foreground">
+              After starring, click &quot;Check Star Status&quot; to activate
+            </p>
           </CardContent>
         </Card>
       </div>
-      
     </div>
   );
 }

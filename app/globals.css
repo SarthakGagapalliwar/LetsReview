@@ -5,7 +5,7 @@
 
 /* =============================================================================
    DESIGN SYSTEM: Clean. Neutral. Reusable. Design-system ready.
-   
+
    Global Visual Language:
    - High-whitespace layouts
    - Light-mode primary aesthetic
@@ -203,7 +203,22 @@
   --shadow-lg: var(--shadow-lg);
   --shadow-xl: var(--shadow-xl);
   --shadow-2xl: var(--shadow-2xl);
-}
+  --animate-shiny-text: shiny-text 8s infinite;
+  @keyframes shiny-text {
+  0%, 90%, 100% {
+    background-position: calc(-100% - var(--shiny-width)) 0;
+    }
+  30%, 60% {
+    background-position: calc(100% + var(--shiny-width)) 0;
+    }
+  }
+  --animate-gradient: gradient 8s linear infinite
+;
+  @keyframes gradient {
+  to {
+    background-position: var(--bg-size, 300%) 0;
+    }
+  }}
 
 /* =============================================================================
    GLOBAL BASE STYLES
@@ -224,7 +239,7 @@ body {
 
 /* =============================================================================
    ANIMATIONS & MOTION SYSTEM
-   
+
    Motion Principles:
    - Fade-in page transitions
    - Staggered entrance for lists/grids
@@ -353,6 +368,20 @@ body {
   animation: pulse-subtle 2s ease-in-out infinite;
 }
 
+/* Shiny text animation */
+@keyframes shiny-text {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-shiny-text {
+  animation: shiny-text 4s linear infinite;
+}
+
 /* Stagger delay utilities */
 .stagger-1 {
   animation-delay: 0.05s;
@@ -424,7 +453,9 @@ body {
     transparent 50%,
     var(--border) 100%
   );
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
@@ -432,7 +463,7 @@ body {
 
 /* =============================================================================
    MICROINTERACTIONS
-   
+
    - Button press animations (10-20ms depress)
    - Hover lift (2-4px) on cards
    - Contextual quick-action bars on hover
@@ -445,7 +476,9 @@ body {
 
 /* Card hover lift */
 .card-hover {
-  transition: transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
+  transition:
+    transform 0.2s var(--ease-out),
+    box-shadow 0.2s var(--ease-out);
 }
 
 .card-hover:hover {
@@ -466,7 +499,9 @@ body {
 .quick-actions {
   opacity: 0;
   transform: translateY(4px);
-  transition: opacity 0.15s, transform 0.15s var(--ease-out);
+  transition:
+    opacity 0.15s,
+    transform 0.15s var(--ease-out);
 }
 
 .group:hover .quick-actions,
@@ -586,4 +621,13 @@ body {
 
 .ascii-art .r {
   display: block;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
