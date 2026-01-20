@@ -4,11 +4,11 @@ import {
   postReviewComment,
   updateComment,
   findExistingReviewComment,
+  getFilesAtRef,
 } from "@/module/github/lib/github";
 import { retrieveContext, extractFilePathsFromDiff } from "@/module/ai/lib/rag";
 import { generateText } from "ai";
 import prisma from "@/lib/db";
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { incrementReviewCountAtomic } from "@/module/payment/lib/subscription";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 
@@ -33,11 +33,11 @@ export const generateReview = inngest.createFunction(
           prNumber,
           headSha,
         },
-        select: { id: true },
+        select: { id: true, status: true },
       });
     });
 
-    if (existingReview) {
+    if (existingReview?.status === "completed") {
       console.log(
         `Review already exists for ${owner}/${repo} #${prNumber} @ ${headSha}`,
       );
@@ -177,6 +177,21 @@ export const generateReview = inngest.createFunction(
       );
     });
 
+    // Step 4b: Fetch changed files at PR head SHA for accurate context
+    const prHeadFiles = await step.run("fetch-pr-head-files", async () => {
+      if (!headSha) return [];
+      const token = await getToken();
+      const changedFilePaths = extractFilePathsFromDiff(diff);
+      return await getFilesAtRef(
+        token,
+        owner,
+        repo,
+        changedFilePaths,
+        headSha,
+        10,
+      );
+    });
+
     // Step 5: Generate AI review
     const review = await step.run("generate-ai-review", async () => {
       const systemInstruction = `You are a Senior Technical Lead and Polyglot Developer.
@@ -203,6 +218,18 @@ Tone: Direct, helpful, and authoritative.`;
 ### 📝 PR Metadata
 **Title:** ${title}
 **Description:** ${description || "No description provided"}
+
+---
+### 🧩 PR Head File Context (from PR branch)
+*These are the CURRENT versions of changed files at the PR head. Prefer these over main branch context when evaluating fixes.*
+
+${
+  prHeadFiles.length > 0
+    ? prHeadFiles
+        .map((file) => `File: ${file.path}\n\n${file.content}`)
+        .join("\n\n---\n\n")
+    : "No PR head file context available."
+}
 
 ---
 ### 📚 Project Context (from main branch - BEFORE this PR)
@@ -280,18 +307,46 @@ Analyze the code and provide the following in Markdown format:
 
     // Step 7: Save review and increment count atomically (only on success)
     await step.run("save-review", async () => {
-      await prisma.review.create({
-        data: {
-          repositoryId,
-          prNumber,
-          prTitle: title,
-          prUrl: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
-          headSha,
-          commentId: commentId ? BigInt(commentId) : null,
-          review,
-          status: "completed",
-        },
-      });
+      if (headSha) {
+        await prisma.review.upsert({
+          where: {
+            repositoryId_prNumber_headSha: {
+              repositoryId,
+              prNumber,
+              headSha,
+            },
+          },
+          update: {
+            prTitle: title,
+            prUrl: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
+            commentId: commentId ? BigInt(commentId) : null,
+            review,
+            status: "completed",
+          },
+          create: {
+            repositoryId,
+            prNumber,
+            prTitle: title,
+            prUrl: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
+            headSha,
+            commentId: commentId ? BigInt(commentId) : null,
+            review,
+            status: "completed",
+          },
+        });
+      } else {
+        await prisma.review.create({
+          data: {
+            repositoryId,
+            prNumber,
+            prTitle: title,
+            prUrl: `https://github.com/${owner}/${repo}/pull/${prNumber}`,
+            commentId: commentId ? BigInt(commentId) : null,
+            review,
+            status: "completed",
+          },
+        });
+      }
 
       // Increment review count only after successful completion
       await incrementReviewCountAtomic(userId, repositoryId);

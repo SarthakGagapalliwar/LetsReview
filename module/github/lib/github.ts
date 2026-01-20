@@ -272,6 +272,59 @@ export async function getRepoFileContents(
   return files;
 }
 
+/**
+ * Fetch file contents for specific paths at a given ref (e.g., PR head SHA)
+ */
+export async function getFilesAtRef(
+  token: string,
+  owner: string,
+  repo: string,
+  paths: string[],
+  ref: string,
+  maxFiles: number = 10,
+): Promise<{ path: string; content: string }[]> {
+  const octokit = new Octokit({ auth: token });
+  const results: { path: string; content: string }[] = [];
+
+  const limitedPaths = paths.slice(0, maxFiles);
+
+  for (const path of limitedPaths) {
+    // Skip binary and non-code files
+    if (
+      path.match(
+        /\.(png|jpg|jpeg|gif|svg|ico|pdf|zip|tar|gz|woff|woff2|ttf|eot|mp3|mp4|mov|avi|lock)$/i,
+      )
+    ) {
+      continue;
+    }
+
+    try {
+      const { data } = await octokit.rest.repos.getContent({
+        owner,
+        repo,
+        path,
+        ref,
+      });
+
+      if (!Array.isArray(data) && data.type === "file" && data.content) {
+        if (data.size && data.size > FILE_FETCH_CONFIG.maxFileSize) {
+          console.warn(`Skipping large file ${path} (${data.size} bytes)`);
+          continue;
+        }
+
+        results.push({
+          path,
+          content: Buffer.from(data.content, "base64").toString("utf-8"),
+        });
+      }
+    } catch (error) {
+      console.error(`Failed to fetch file ${path} at ref ${ref}:`, error);
+    }
+  }
+
+  return results;
+}
+
 export async function getPullRequestDiff(
   token: string,
   owner: string,

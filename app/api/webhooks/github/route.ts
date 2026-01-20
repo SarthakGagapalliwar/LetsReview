@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
             );
           }
 
-          // Check for existing review with same headSha (idempotency)
+          // Reserve a pending review row to prevent duplicate runs (race-safe)
           if (headSha) {
             const existingReview = await prisma.review.findFirst({
               where: {
@@ -100,6 +100,29 @@ export async function POST(req: NextRequest) {
             if (existingReview) {
               console.log(
                 `Review already exists for ${repo} #${prNumber} @ ${headSha}`,
+              );
+              return NextResponse.json(
+                { message: "Review already exists for this revision" },
+                { status: 200 },
+              );
+            }
+
+            try {
+              await prisma.review.create({
+                data: {
+                  repositoryId: repository.id,
+                  prNumber,
+                  prTitle: body.pull_request?.title ?? `PR #${prNumber}`,
+                  prUrl: `https://github.com/${owner}/${repoName}/pull/${prNumber}`,
+                  headSha,
+                  review: "", // placeholder for pending review
+                  status: "pending",
+                },
+              });
+            } catch (error) {
+              // If another request created it first, treat as duplicate
+              console.warn(
+                `Pending review already created for ${repo} #${prNumber} @ ${headSha}`,
               );
               return NextResponse.json(
                 { message: "Review already exists for this revision" },
