@@ -28,6 +28,7 @@ export const auth = betterAuth({
     "http://localhost:3000",
     "https://addisyn-strikebound-nonperceivably.ngrok-free.dev",
     "https://lets-review-zeta.vercel.app",
+    "https://letsreview.sarthak.asia/",
   ],
   plugins: [
     polar({
