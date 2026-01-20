@@ -188,7 +188,7 @@ export const generateReview = inngest.createFunction(
         repo,
         changedFilePaths,
         headSha,
-        10,
+        30,
       );
     });
 
