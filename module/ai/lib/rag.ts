@@ -289,195 +289,32 @@ export async function generateEmbedding(text: string) {
   return embedding;
 }
 
-// ============================================================================
-// Chunking Configuration
-// ============================================================================
-
-const CHUNK_CONFIG = {
-  maxChunkSize: 1500, // ~375 tokens, safe for embedding models
-  overlapSize: 200, // Overlap for context continuity
-  concurrencyLimit: 5, // Bounded parallel embedding
-} as const;
-
-/**
- * Split content into overlapping chunks with semantic breaks
- * Prefers breaking at function/class boundaries, then newlines, then arbitrary
- */
-function chunkContent(content: string, filePath: string): string[] {
-  const { maxChunkSize, overlapSize } = CHUNK_CONFIG;
-
-  if (content.length <= maxChunkSize) {
-    return [`File: ${filePath}\n\n${content}`];
-  }
-
-  const chunks: string[] = [];
-  let startIndex = 0;
-
-  // Patterns for semantic breaks (prioritized)
-  const breakPatterns = [
-    /\n(?=(?:export\s+)?(?:function|class|interface|type|const|let|var|def|async\s+function)\s)/g, // Function/class definitions
-    /\n\n+/g, // Double newlines (paragraph breaks)
-    /\n/g, // Single newlines
-  ];
-
-  while (startIndex < content.length) {
-    let endIndex = Math.min(startIndex + maxChunkSize, content.length);
-
-    // If not at the end, try to find a semantic break point
-    if (endIndex < content.length) {
-      let bestBreak = -1;
-
-      for (const pattern of breakPatterns) {
-        pattern.lastIndex = startIndex + maxChunkSize - overlapSize;
-        const searchRegion = content.slice(startIndex, endIndex);
-
-        // Find the last match within our chunk
-        let match;
-        const localPattern = new RegExp(pattern.source, "g");
-        while ((match = localPattern.exec(searchRegion)) !== null) {
-          if (match.index + startIndex < endIndex) {
-            bestBreak = match.index + startIndex + match[0].length;
-          }
-        }
-
-        if (bestBreak > startIndex + maxChunkSize / 2) {
-          break; // Found a good break point
-        }
-      }
-
-      if (bestBreak > startIndex) {
-        endIndex = bestBreak;
-      }
-    }
-
-    const chunkContent = content.slice(startIndex, endIndex).trim();
-    if (chunkContent.length > 0) {
-      chunks.push(
-        `File: ${filePath} [chunk ${chunks.length + 1}]\n\n${chunkContent}`,
-      );
-    }
-
-    // Move start with overlap
-    startIndex = endIndex - overlapSize;
-    if (startIndex >= content.length) break;
-  }
-
-  return chunks;
-}
-
-/**
- * Process items with bounded concurrency using a simple semaphore pattern
- */
-async function processWithConcurrency<T, R>(
-  items: T[],
-  processor: (item: T) => Promise<R>,
-  concurrencyLimit: number,
-): Promise<R[]> {
-  const results: R[] = [];
-  let activeCount = 0;
-  let currentIndex = 0;
-
-  return new Promise((resolve) => {
-    const processNext = () => {
-      while (activeCount < concurrencyLimit && currentIndex < items.length) {
-        const index = currentIndex++;
-        activeCount++;
-
-        processor(items[index])
-          .then((result) => {
-            results.push(result);
-          })
-          .catch((error) => {
-            console.error(`Processing failed for item ${index}:`, error);
-            results.push(null as unknown as R);
-          })
-          .finally(() => {
-            activeCount--;
-            if (currentIndex >= items.length && activeCount === 0) {
-              resolve(results);
-            } else {
-              processNext();
-            }
-          });
-      }
-    };
-
-    if (items.length === 0) {
-      resolve([]);
-    } else {
-      processNext();
-    }
-  });
-}
-
 export async function indexCodebase(
   repoId: string,
   files: { path: string; content: string }[],
 ) {
   console.log(`Starting indexing for ${repoId} with ${files.length} files`);
 
-  // Prepare all chunks
-  const allChunks: { path: string; content: string; chunkIndex: number }[] = [];
+  const vectors = [];
 
   for (const file of files) {
-    const chunks = chunkContent(file.content, file.path);
-    chunks.forEach((chunk, index) => {
-      allChunks.push({ path: file.path, content: chunk, chunkIndex: index });
-    });
-  }
-
-  console.log(`Created ${allChunks.length} chunks from ${files.length} files`);
-
-  // Generate embeddings with bounded concurrency
-  const vectors: Array<{
-    id: string;
-    values: number[];
-    metadata: {
-      repoId: string;
-      path: string;
-      content: string;
-      chunkIndex: number;
-    };
-  }> = [];
-
-  const embedChunk = async (chunk: {
-    path: string;
-    content: string;
-    chunkIndex: number;
-  }) => {
-    const truncatedContent = chunk.content.slice(0, 8000);
+    const content = `File: ${file.path}\n\n${file.content}`;
+    const truncatedContent = content.slice(0, 8000);
 
     try {
       const embedding = await generateEmbedding(truncatedContent);
 
-      return {
-        id: `${repoId}-${chunk.path.replace(/\//g, "_")}-chunk${chunk.chunkIndex}`,
+      vectors.push({
+        id: `${repoId}-${file.path.replace(/\//g, "_")}`,
         values: embedding,
         metadata: {
           repoId,
-          path: chunk.path,
+          path: file.path,
           content: truncatedContent,
-          chunkIndex: chunk.chunkIndex,
         },
-      };
+      });
     } catch (error) {
-      console.error(
-        `Failed to embed ${chunk.path} chunk ${chunk.chunkIndex}:`,
-        error,
-      );
-      return null;
-    }
-  };
-
-  const results = await processWithConcurrency(
-    allChunks,
-    embedChunk,
-    CHUNK_CONFIG.concurrencyLimit,
-  );
-
-  for (const result of results) {
-    if (result) {
-      vectors.push(result);
+      console.error(`Failed to embed ${file.path}`, error);
     }
   }
 
