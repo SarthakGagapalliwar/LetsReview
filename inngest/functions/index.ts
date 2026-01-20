@@ -4,7 +4,10 @@ import { indexCodebase } from "@/module/ai/lib/rag";
 import { getRepoFileContents } from "@/module/github/lib/github";
 
 export const indexRepo = inngest.createFunction(
-  { id: "index-repo" },
+  {
+    id: "index-repo",
+    retries: 3,
+  },
   { event: "repository.connect" },
 
   async ({ event, step }) => {
@@ -23,7 +26,14 @@ export const indexRepo = inngest.createFunction(
         throw new Error("No GitHub access token found");
       }
 
-      return await getRepoFileContents(account.accessToken, owner, repo);
+      const fetchedFiles = await getRepoFileContents(
+        account.accessToken,
+        owner,
+        repo,
+      );
+
+      // Ensure the result is serializable (no circular refs, functions, etc.)
+      return fetchedFiles.map((f) => ({ path: f.path, content: f.content }));
     });
 
     await step.run("index-codebase", async () => {
@@ -31,11 +41,14 @@ export const indexRepo = inngest.createFunction(
     });
 
     return { success: true, indexedFiles: files.length };
-  }
+  },
 );
 
 export const reindexRepo = inngest.createFunction(
-  { id: "reindex-repo" },
+  {
+    id: "reindex-repo",
+    retries: 3,
+  },
   { event: "repository.reindex" },
 
   async ({ event, step }) => {
@@ -61,7 +74,14 @@ export const reindexRepo = inngest.createFunction(
         throw new Error("No GitHub access token found");
       }
 
-      return await getRepoFileContents(account.accessToken, owner, repo);
+      const fetchedFiles = await getRepoFileContents(
+        account.accessToken,
+        owner,
+        repo,
+      );
+
+      // Ensure the result is serializable
+      return fetchedFiles.map((f) => ({ path: f.path, content: f.content }));
     });
 
     // Step 3: Re-index with new files
@@ -70,6 +90,6 @@ export const reindexRepo = inngest.createFunction(
     });
 
     return { success: true, reindexedFiles: files.length, branch };
-  }
+  },
 );
 //to tun inngest ngrok adn bun run dev

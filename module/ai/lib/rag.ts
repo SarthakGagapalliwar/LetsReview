@@ -366,7 +366,7 @@ function chunkContent(content: string, filePath: string): string[] {
 }
 
 /**
- * Process items with bounded concurrency
+ * Process items with bounded concurrency using a simple semaphore pattern
  */
 async function processWithConcurrency<T, R>(
   items: T[],
@@ -374,34 +374,40 @@ async function processWithConcurrency<T, R>(
   concurrencyLimit: number,
 ): Promise<R[]> {
   const results: R[] = [];
-  const executing: Promise<void>[] = [];
+  let activeCount = 0;
+  let currentIndex = 0;
 
-  for (const item of items) {
-    const promise = processor(item).then((result) => {
-      results.push(result);
-    });
+  return new Promise((resolve) => {
+    const processNext = () => {
+      while (activeCount < concurrencyLimit && currentIndex < items.length) {
+        const index = currentIndex++;
+        activeCount++;
 
-    executing.push(promise);
-
-    if (executing.length >= concurrencyLimit) {
-      await Promise.race(executing);
-      // Remove completed promises
-      for (let i = executing.length - 1; i >= 0; i--) {
-        const p = executing[i];
-        // Check if promise is settled by racing with resolved promise
-        const settled = await Promise.race([
-          p.then(() => true).catch(() => true),
-          Promise.resolve(false),
-        ]);
-        if (settled) {
-          executing.splice(i, 1);
-        }
+        processor(items[index])
+          .then((result) => {
+            results.push(result);
+          })
+          .catch((error) => {
+            console.error(`Processing failed for item ${index}:`, error);
+            results.push(null as unknown as R);
+          })
+          .finally(() => {
+            activeCount--;
+            if (currentIndex >= items.length && activeCount === 0) {
+              resolve(results);
+            } else {
+              processNext();
+            }
+          });
       }
-    }
-  }
+    };
 
-  await Promise.all(executing);
-  return results;
+    if (items.length === 0) {
+      resolve([]);
+    } else {
+      processNext();
+    }
+  });
 }
 
 export async function indexCodebase(
