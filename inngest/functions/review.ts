@@ -11,6 +11,7 @@ import { generateText } from "ai";
 import prisma from "@/lib/db";
 import { incrementReviewCountAtomic } from "@/module/payment/lib/subscription";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 
 export const generateReview = inngest.createFunction(
   {
@@ -269,20 +270,20 @@ Analyze the code and provide the following in Markdown format:
     * **Maintainability**: Code modularity, separation of concerns, or readability improvements.
     * *Show code snippets for fixes.*`;
 
-      // const openrouter = createOpenRouter({
-      //   apiKey: process.env.OPENROUTER_API_KEY,
-      // });
-
-      const nim = createOpenAICompatible({
-        name: "nim",
-        baseURL: "https://integrate.api.nvidia.com/v1",
-        headers: {
-          Authorization: `Bearer ${process.env.NIM_API_KEY}`,
-        },
+      const openrouter = createOpenRouter({
+        apiKey: process.env.OPENROUTER_API_KEY,
       });
 
+      // const nim = createOpenAICompatible({
+      //   name: "nim",
+      //   baseURL: "https://integrate.api.nvidia.com/v1",
+      //   headers: {
+      //     Authorization: `Bearer ${process.env.NIM_API_KEY}`,
+      //   },
+      // });
+
       const { text } = await generateText({
-        model: nim.chatModel("moonshotai/kimi-k2-thinking"),
+        model: openrouter.chat("deepseek/deepseek-v3.2"),
         prompt,
         temperature: 0.2,
       });
