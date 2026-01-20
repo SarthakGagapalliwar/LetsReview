@@ -29,8 +29,9 @@ model User {
   subscriptionTier   String     @default("FREE")
   subscriptionStatus String? //ACTIVE , CANCELLED, EXPIRED
 
-  polarCustomerId    String? @unique
-  polarSubsriptionId String? @unique
+  // Star-based subscription fields (replaces Polar)
+  starredRepo   Boolean   @default(false)
+  starCheckedAt DateTime?
 
   @@unique([email])
   @@map("user")

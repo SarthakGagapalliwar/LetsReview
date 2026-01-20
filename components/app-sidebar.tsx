@@ -144,7 +144,7 @@ export const AppSidebar = () => {
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size="lg"
-                  className="h-12 px-3 data-[state=open]:bg-sidebar-accent transition-colors"
+                  className="h-12 px-3 data-[state=open]:bg-sidebar-accent transition-colors cursor-pointer"
                 >
                   <div className="flex items-center gap-3 w-full">
                     <Avatar className="h-8 w-8 shrink-0">

@@ -225,26 +225,12 @@ export async function updateUserTier(
   userId: string,
   tier: SubscriptionTier,
   status: SubscriptionStatus,
-  polarSubscriptionId?: string,
 ): Promise<void> {
   await prisma.user.update({
     where: { id: userId },
     data: {
       subscriptionTier: tier,
       subscriptionStatus: status,
-      ...(polarSubscriptionId && { polarSubsriptionId: polarSubscriptionId }),
-    },
-  });
-}
-
-export async function updatePolarCustomerId(
-  userId: string,
-  polarCustomerId: string,
-): Promise<void> {
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      polarCustomerId,
     },
   });
 }
