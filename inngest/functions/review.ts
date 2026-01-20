@@ -151,7 +151,7 @@ Analyze the code and provide the following in Markdown format:
       });
 
       const { text } = await generateText({
-        model: nim.chatModel("moonshotai/kimi-k2-thinking"),
+        model: nim.chatModel("deepseek-ai/deepseek-v3.2"),
         prompt,
         temperature: 0.2, // Keep low for precision
       });
