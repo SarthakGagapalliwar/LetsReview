@@ -157,7 +157,7 @@ Analyze the code and provide the following in Markdown format:
       });
 
       const { text } = await generateText({
-        model: openrouter.chat("deepseek/deepseek-v3.2-speciale"),
+        model: openrouter.chat("deepseek/deepseek-v3.2"),
         prompt,
         temperature: 0.2, // Keep low for precision
       });
