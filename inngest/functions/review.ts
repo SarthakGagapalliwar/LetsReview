@@ -109,19 +109,21 @@ export const generateReview = inngest.createFunction(
 </p>
 
 > [!NOTE]
-> **Review in progress...**
->
-> LetsReview is analyzing your pull request. This may take a few moments.
+> **Currently processing new changes in this PR. This may take a few minutes, please wait...**
 
-### What we're doing:
-| Step | Status |
-|------|--------|
-| 📥 Fetching pull request changes | ✅ Complete |
-| 🔍 Analyzing code context | ⏳ In progress... |
-| 🧠 Generating AI-powered review | ⏳ Pending |
-| 📝 Preparing detailed feedback | ⏳ Pending |
+<details>
+<summary>📦 Commits</summary>
 
-*Please wait while we review your code...*
+*Analyzing commits...*
+
+</details>
+
+<details>
+<summary>📂 Files selected for processing</summary>
+
+*Fetching changed files...*
+
+</details>
 
 ---
 *Powered by LetsReview*`,
@@ -142,19 +144,21 @@ export const generateReview = inngest.createFunction(
 </p>
 
 > [!NOTE]
-> **Review in progress...**
->
-> LetsReview is analyzing your pull request. This may take a few moments.
+> **Currently processing new changes in this PR. This may take a few minutes, please wait...**
 
-### What we're doing:
-| Step | Status |
-|------|--------|
-| 📥 Fetching pull request changes | ✅ Complete |
-| 🔍 Analyzing code context | ⏳ In progress... |
-| 🧠 Generating AI-powered review | ⏳ Pending |
-| 📝 Preparing detailed feedback | ⏳ Pending |
+<details>
+<summary>📦 Commits</summary>
 
-*Please wait while we review your code...*
+*Analyzing commits...*
+
+</details>
+
+<details>
+<summary>📂 Files selected for processing</summary>
+
+*Fetching changed files...*
+
+</details>
 
 ---
 *Powered by LetsReview*`,
@@ -252,93 +256,144 @@ ${diff}
 
 ---
 ### Response Instructions
-Analyze the code and provide the following in Markdown format:
+Analyze the code and provide the following in Markdown format. Use GitHub's colored blockquote alerts where appropriate:
+- \`> [!NOTE]\` for informational notes (blue)
+- \`> [!TIP]\` for helpful tips (green)  
+- \`> [!IMPORTANT]\` for important information (purple)
+- \`> [!WARNING]\` for warnings (yellow)
+- \`> [!CAUTION]\` for critical warnings (red)
 
-1.  **📝 Summary & Verdict**:
-    * One sentence summary of the change.
-    * **Verdict**: [Approve / Request Changes / Discuss] - Choose one based on the severity of issues found.
+---
 
-2.  **🧭 Walkthrough**:
-    * Brief file-by-file breakdown using emojis (📄, ➕, ✏️). Focus on *what* changed.
-    * Use collapsible \`<details>\` blocks for each file if there are many changes.
+**📝 Summary & Verdict** (Always show this at the top, NOT in a collapsible):
+* One paragraph summary of what this PR accomplishes.
+* **Verdict**: [✅ Approve / ⚠️ Request Changes / 💬 Discuss] - Choose based on severity of issues found.
+* **Estimated review effort**: 🎯 [1-5 scale] | ⏱️ ~X minutes
 
-3.  **📊 Visualization**:
-    * A Mermaid JS sequence diagram for the **changed logic only** (skip if changes are trivial).
-    * Wrap in \`\`\`mermaid ... \`\`\`.
-    * **CRITICAL**: Use simple alphanumeric labels. Do NOT use braces {}, quotes "", or parentheses () inside node text.
+---
 
-4.  **🛑 Actionable Issues** (Only if issues are found):
-    For EACH issue found, create a separate collapsible section with this EXACT structure:
+<details>
+<summary>📝 Walkthrough</summary>
 
-    <details>
-    <summary>⚠️ [Severity: Critical/Major/Minor] | [Issue Title] - \`path/to/file.ext\`</summary>
+## Walkthrough
+[2-3 sentence high-level description of the changes]
 
-    **📍 Location:** \`path/to/file.ext\` (lines X-Y)
+## Changes
+| File(s) | Summary |
+|---------|----------|
+| \`path/to/file.ext\` | [Brief description of changes] |
+| ... | ... |
 
-    **🔍 Description:**
-    [Clear explanation of the issue and why it matters]
+</details>
 
-    <details>
-    <summary>▶ 🔧 Proposed fix</summary>
+---
 
-    \`\`\`diff
-    - [old code line]
-    + [new code line]
-    \`\`\`
+**Actionable comments posted: X** (Show count of issues found)
 
-    </details>
+> [!CAUTION]
+> [If there are critical issues that MUST be addressed before merging, list them here with this red blockquote]
 
-    <details>
-    <summary>▶ 📋 Committable suggestion</summary>
+> [!WARNING]  
+> [If there are important issues that SHOULD be addressed, list them here with this yellow blockquote]
 
-    > ‼️ **IMPORTANT**
-    > Carefully review the code before committing. Ensure that it accurately replaces the highlighted code, contains no missing lines, and has no issues with indentation.
+---
 
-    \`\`\`suggestion
-    [The complete fixed code block that can be directly committed]
-    \`\`\`
+<details>
+<summary>🧹 Nitpick comments (X)</summary>
 
-    </details>
+[For minor issues like style, unused imports, small optimizations - group them here]
 
-    <details>
-    <summary>▶ 🤖 Prompt for AI Agents</summary>
+<details>
+<summary>path/to/file.ext (N issues)</summary>
 
-    \`\`\`
-    In \`path/to/file.ext\` at line X, [describe the exact fix needed in imperative form, e.g., "remove the unused import", "add null check before accessing property", etc.]
-    \`\`\`
+**Line X-Y**: [Issue description]
 
-    </details>
+[Suggested fix or explanation]
 
-    </details>
+</details>
 
-    * **Severity Levels:**
-      - 🔴 **Critical**: Logic errors, security vulnerabilities, crashes, data loss risks
-      - 🟠 **Major**: Performance issues, architectural problems, potential bugs
-      - 🟡 **Minor**: Code style, unused imports, minor optimizations
+</details>
 
-    * If NO issues are found, display:
-      > ✅ **No actionable issues found.** The code looks good!
+---
 
-5.  **💡 Suggestions & Improvements** (Optional enhancements):
-    * **Performance**: Database query efficiency, algorithmic complexity, or resource management.
-    * **Maintainability**: Code modularity, separation of concerns, or readability improvements.
-    * *Show code snippets for fixes.*
+**🛑 Actionable Issues** (Only if issues are found):
+For EACH significant issue, create a section with this structure:
 
-6.  **🤖 Fix all issues with AI agent** (Only if issues were found above):
-    Provide a single consolidated prompt that an AI coding agent can use to fix ALL the issues at once:
+<details>
+<summary>⚠️ [Severity] | [Issue Title] - \`path/to/file.ext\`</summary>
 
-    <details>
-    <summary>▶ 🤖 Fix all issues with AI agent</summary>
+**📍 Location:** \`path/to/file.ext\` (lines X-Y)
 
-    \`\`\`
-    Fix the following issues in this pull request:
+**🔍 Description:**
+[Clear explanation of the issue and why it matters]
 
-    [List each issue with file path, line number, and the specific fix needed in imperative form. Group by file if multiple issues exist in the same file.]
+<details>
+<summary>▶ 🔧 Proposed fix</summary>
 
-    Ensure all fixes maintain the existing code style and don't introduce new issues.
-    \`\`\`
+\`\`\`diff
+- [old code line]
++ [new code line]
+\`\`\`
 
-    </details>`;
+</details>
+
+<details>
+<summary>▶ 📋 Committable suggestion</summary>
+
+> [!IMPORTANT]
+> Carefully review the code before committing. Ensure that it accurately replaces the highlighted code, contains no missing lines, and has no issues with indentation.
+
+\`\`\`suggestion
+[The complete fixed code block that can be directly committed]
+\`\`\`
+
+</details>
+
+<details>
+<summary>▶ 🤖 Prompt for AI Agents</summary>
+
+\`\`\`
+In \`path/to/file.ext\` at line X, [describe the exact fix needed in imperative form]
+\`\`\`
+
+</details>
+
+</details>
+
+* **Severity Levels:**
+  - 🔴 **Critical**: Logic errors, security vulnerabilities, crashes, data loss
+  - 🟠 **Major**: Performance issues, architectural problems, potential bugs
+  - 🟡 **Minor**: Code style, unused imports, minor optimizations
+
+* If NO issues are found, display:
+  > [!TIP]
+  > **No actionable issues found.** The code looks good! ✅
+
+---
+
+<details>
+<summary>💡 Suggestions & Improvements</summary>
+
+* **Performance**: [Any performance suggestions]
+* **Maintainability**: [Any maintainability suggestions]
+* **Best Practices**: [Any best practice suggestions]
+
+</details>
+
+---
+
+<details>
+<summary>🤖 Fix all issues with AI agent</summary>
+
+\`\`\`
+Fix the following issues in this pull request:
+
+[List each issue with file path, line number, and the specific fix needed in imperative form. Group by file if multiple issues exist in the same file.]
+
+Ensure all fixes maintain the existing code style and don't introduce new issues.
+\`\`\`
+
+</details>`;
 
       const openrouter = createOpenRouter({
         apiKey: process.env.OPENROUTER_API_KEY,
