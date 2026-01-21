@@ -288,6 +288,21 @@ Analyze the code and provide the following in Markdown format. Use GitHub's colo
 
 ---
 
+<details>
+<summary>📊 Visualization</summary>
+
+A Mermaid JS sequence or flow diagram for the **changed logic only** (skip if changes are trivial).
+
+\`\`\`mermaid
+[Your diagram here - use simple alphanumeric labels only]
+\`\`\`
+
+**CRITICAL**: Use simple alphanumeric labels. Do NOT use braces {}, quotes "", or parentheses () inside node text.
+
+</details>
+
+---
+
 **Actionable comments posted: X** (Show count of issues found)
 
 > [!CAUTION]
