@@ -11,7 +11,7 @@ import { generateText } from "ai";
 import prisma from "@/lib/db";
 import { incrementReviewCountAtomic } from "@/module/payment/lib/subscription";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 
 export const generateReview = inngest.createFunction(
   {
@@ -195,7 +195,7 @@ export const generateReview = inngest.createFunction(
 
     // Step 5: Generate AI review
     const review = await step.run("generate-ai-review", async () => {
-      const systemInstruction = `You are a Senior Technical Lead and Polyglot Developer.
+      const systemInstruction = `You are a Senior Technical Lead and Polyglot Developer acting as an AI Code Review Bot (similar to CodeRabbit).
 
 Your role is to ensure the code is production-ready. You must analyze the code for both **Correctness** (Bugs, Typos) and **Quality** (Architecture, Security).
 
@@ -207,9 +207,15 @@ Your role is to ensure the code is production-ready. You must analyze the code f
 First, detect the language/framework from the code.
 Then, mentally **simulate the execution** of the changes to catch runtime errors.
 Finally, prioritize your findings by severity:
-1. **BLOCKING**: Logic errors, security leaks, or critical performance issues IN THE NEW CODE.
-2. **IMPORTANT**: Architectural misalignment with the provided Context.
-3. **OPTIONAL**: Style nitpicks or minor optimizations (Only mention if valuable).
+1. **CRITICAL (🔴)**: Logic errors, security leaks, crashes, data loss, or critical performance issues.
+2. **MAJOR (🟠)**: Architectural misalignment, potential bugs, performance issues.
+3. **MINOR (🟡)**: Style nitpicks, unused imports, minor optimizations.
+
+**OUTPUT REQUIREMENTS:**
+- For EACH issue found, you MUST provide: Proposed fix (diff format), Committable suggestion (complete code block), and Prompt for AI Agents (imperative instruction).
+- Use collapsible \`<details>\` blocks for issues to keep the review organized.
+- If issues are found, include a consolidated "Fix all issues with AI agent" section at the end.
+- If NO issues are found, explicitly state that and skip the issue-related sections.
 
 Tone: Direct, helpful, and authoritative.`;
 
@@ -252,23 +258,87 @@ Analyze the code and provide the following in Markdown format:
     * One sentence summary of the change.
     * **Verdict**: [Approve / Request Changes / Discuss] - Choose one based on the severity of issues found.
 
-2.  **🛑 Critical Issues** (If any):
-    * **Logic & Stability**: Crash risks, race conditions, infinite recursion, typos affecting execution, or unhandled errors.
-    * **Security**: OWASP vulnerabilities, auth bypasses, or sensitive data exposure.
-    * *If none, explicitly state "No critical issues found."*
-
-3.  **🧭 Walkthrough**:
+2.  **🧭 Walkthrough**:
     * Brief file-by-file breakdown using emojis (📄, ➕, ✏️). Focus on *what* changed.
+    * Use collapsible \`<details>\` blocks for each file if there are many changes.
 
-4.  **📊 Visualization**:
+3.  **📊 Visualization**:
     * A Mermaid JS sequence diagram for the **changed logic only** (skip if changes are trivial).
     * Wrap in \`\`\`mermaid ... \`\`\`.
     * **CRITICAL**: Use simple alphanumeric labels. Do NOT use braces {}, quotes "", or parentheses () inside node text.
 
-5.  **💡 Suggestions & Improvements**:
+4.  **🛑 Actionable Issues** (Only if issues are found):
+    For EACH issue found, create a separate collapsible section with this EXACT structure:
+
+    <details>
+    <summary>⚠️ [Severity: Critical/Major/Minor] | [Issue Title] - \`path/to/file.ext\`</summary>
+
+    **📍 Location:** \`path/to/file.ext\` (lines X-Y)
+
+    **🔍 Description:**
+    [Clear explanation of the issue and why it matters]
+
+    <details>
+    <summary>▶ 🔧 Proposed fix</summary>
+
+    \`\`\`diff
+    - [old code line]
+    + [new code line]
+    \`\`\`
+
+    </details>
+
+    <details>
+    <summary>▶ 📋 Committable suggestion</summary>
+
+    > ‼️ **IMPORTANT**
+    > Carefully review the code before committing. Ensure that it accurately replaces the highlighted code, contains no missing lines, and has no issues with indentation.
+
+    \`\`\`suggestion
+    [The complete fixed code block that can be directly committed]
+    \`\`\`
+
+    </details>
+
+    <details>
+    <summary>▶ 🤖 Prompt for AI Agents</summary>
+
+    \`\`\`
+    In \`path/to/file.ext\` at line X, [describe the exact fix needed in imperative form, e.g., "remove the unused import", "add null check before accessing property", etc.]
+    \`\`\`
+
+    </details>
+
+    </details>
+
+    * **Severity Levels:**
+      - 🔴 **Critical**: Logic errors, security vulnerabilities, crashes, data loss risks
+      - 🟠 **Major**: Performance issues, architectural problems, potential bugs
+      - 🟡 **Minor**: Code style, unused imports, minor optimizations
+
+    * If NO issues are found, display:
+      > ✅ **No actionable issues found.** The code looks good!
+
+5.  **💡 Suggestions & Improvements** (Optional enhancements):
     * **Performance**: Database query efficiency, algorithmic complexity, or resource management.
     * **Maintainability**: Code modularity, separation of concerns, or readability improvements.
-    * *Show code snippets for fixes.*`;
+    * *Show code snippets for fixes.*
+
+6.  **🤖 Fix all issues with AI agent** (Only if issues were found above):
+    Provide a single consolidated prompt that an AI coding agent can use to fix ALL the issues at once:
+
+    <details>
+    <summary>▶ 🤖 Fix all issues with AI agent</summary>
+
+    \`\`\`
+    Fix the following issues in this pull request:
+
+    [List each issue with file path, line number, and the specific fix needed in imperative form. Group by file if multiple issues exist in the same file.]
+
+    Ensure all fixes maintain the existing code style and don't introduce new issues.
+    \`\`\`
+
+    </details>`;
 
       const openrouter = createOpenRouter({
         apiKey: process.env.OPENROUTER_API_KEY,
