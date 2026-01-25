@@ -647,7 +647,7 @@ export async function orchestrateFullRepoReview(
   const codebaseContext = await retrieveContext(
     "full codebase architecture components features",
     repoId,
-    50000, // Get more context for full review
+    5000, // Get more context for full review
   );
 
   if (codebaseContext.length === 0) {
