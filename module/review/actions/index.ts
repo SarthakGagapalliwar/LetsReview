@@ -6,6 +6,10 @@ import { Prisma } from "@/lib/generated/prisma";
 import { headers } from "next/headers";
 import { inngest } from "@/inngest/client";
 import { Octokit } from "octokit";
+import {
+  checkUserStarStatus,
+  getRequiredRepoUrl,
+} from "@/module/github/lib/star";
 
 export async function getReviews() {
   const session = await auth.api.getSession({
@@ -124,6 +128,15 @@ export async function requestFullRepoReview(repositoryId: string) {
 
   if (!session) {
     throw new Error("Unauthorized");
+  }
+
+  // Check if user has starred the LetsReview repo (required for full reviews)
+  const starStatus = await checkUserStarStatus();
+  if (!starStatus.hasStarred) {
+    const repoUrl = await getRequiredRepoUrl();
+    throw new Error(
+      `STAR_REQUIRED:${repoUrl}:Star our repository to unlock Full Repository Reviews! This helps us grow and provide better features.`,
+    );
   }
 
   // Verify repository ownership

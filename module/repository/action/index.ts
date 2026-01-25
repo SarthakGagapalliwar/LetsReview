@@ -4,11 +4,15 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { createWebhook, getRespositories } from "@/module/github/lib/github";
 import { inngest } from "@/inngest/client";
-import { canConnectRepository, decrementRepositoryCount, incrementRepositoryCount } from "@/module/payment/lib/subscription";
+import {
+  canConnectRepository,
+  decrementRepositoryCount,
+  incrementRepositoryCount,
+} from "@/module/payment/lib/subscription";
 
 export const fetchRepositories = async (
   page: number = 1,
-  perPage: number = 10
+  perPage: number = 10,
 ) => {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -37,7 +41,7 @@ export const fetchRepositories = async (
 export const connectRepository = async (
   owner: string,
   repo: string,
-  githubId: number
+  githubId: number,
 ) => {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -49,8 +53,10 @@ export const connectRepository = async (
   //TODO:check if user can connect more repo
   const canConnect = await canConnectRepository(session.user.id);
 
-  if(!canConnect){
-     throw new Error("Repository limit reached. Please upgrade to Pro for unlimited repositories.");
+  if (!canConnect) {
+    throw new Error(
+      "Repository limit reached. Please upgrade to Pro for unlimited repositories.",
+    );
   }
 
   const webhook = await createWebhook(owner, repo);
@@ -65,23 +71,23 @@ export const connectRepository = async (
         userId: session.user.id,
       },
     });
-    
+
     await incrementRepositoryCount(session.user.id);
 
-  //TODO :TRIGGER REPOSOTU INDINNG FOR RAG(FIRE AND FORGET)
-  try {
-    await inngest.send({
-      name: "repository.connect",
-      data: {
-        owner,
-        repo,
-        userId: session.user.id,
-      },
-    });
-  } catch (error) {
-    console.error("Failed to trigger repository indexing:", error);
+    //TODO :TRIGGER REPOSOTU INDINNG FOR RAG(FIRE AND FORGET)
+    try {
+      await inngest.send({
+        name: "repository.connect",
+        data: {
+          owner,
+          repo,
+          userId: session.user.id,
+        },
+      });
+    } catch (error) {
+      console.error("Failed to trigger repository indexing:", error);
+    }
   }
-}
 
   return webhook;
 };

@@ -23,6 +23,9 @@ import {
   StopCircle,
   Link as LinkIcon,
   Trash2,
+  Star,
+  Sparkles,
+  Github,
 } from "lucide-react";
 import {
   getRepositoryReviews,
@@ -32,6 +35,10 @@ import {
   cancelRepositoryReview,
   deleteRepositoryReview,
 } from "@/module/review/actions";
+import {
+  syncSubscriptionStatus,
+  getSubscriptionData,
+} from "@/module/payment/action";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
@@ -44,10 +51,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function FullReviewPage() {
   const queryClient = useQueryClient();
   const [selectedRepo, setSelectedRepo] = useState<string>("");
+  const [showStarDialog, setShowStarDialog] = useState(false);
+  const [starRepoUrl, setStarRepoUrl] = useState<string>("");
+  const [isCheckingStar, setIsCheckingStar] = useState(false);
+
+  // Fetch subscription/star status
+  const { data: subscriptionData, refetch: refetchSubscription } = useQuery({
+    queryKey: ["subscription-data"],
+    queryFn: getSubscriptionData,
+  });
+
+  const hasStarred = subscriptionData?.user?.starredRepo ?? false;
 
   const { data: reviews, isLoading: reviewsLoading } = useQuery({
     queryKey: ["repository-reviews"],
@@ -102,7 +127,15 @@ export default function FullReviewPage() {
       setSelectedRepo("");
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      // Check if this is a star required error
+      if (error.message.startsWith("STAR_REQUIRED:")) {
+        const parts = error.message.split(":");
+        const repoUrl = parts[1];
+        setStarRepoUrl(repoUrl);
+        setShowStarDialog(true);
+      } else {
+        toast.error(error.message);
+      }
     },
   });
 
@@ -257,6 +290,49 @@ export default function FullReviewPage() {
     return ["failed", "cancelled"].includes(status);
   };
 
+  // Handle "I've starred" button click
+  const handleCheckStar = async () => {
+    setIsCheckingStar(true);
+    try {
+      const result = await syncSubscriptionStatus();
+      if (result.hasStarred) {
+        toast.success(
+          "🎉 Thank you for starring! You now have access to Full Repository Reviews.",
+        );
+        setShowStarDialog(false);
+        refetchSubscription();
+        // Retry the review request
+        if (selectedRepo) {
+          const repo = repositories?.find(
+            (r) =>
+              r.id === selectedRepo || r.githubId.toString() === selectedRepo,
+          );
+          if (repo) {
+            if (!repo.isConnected) {
+              connectRepoMutation.mutate({
+                githubId: repo.githubId,
+                name: repo.name,
+                owner: repo.owner,
+                fullName: repo.fullName,
+                url: repo.url,
+              });
+            } else {
+              requestReviewMutation.mutate(repo.id!);
+            }
+          }
+        }
+      } else {
+        toast.error(
+          "We couldn't detect your star yet. Please make sure you've starred the repository and try again.",
+        );
+      }
+    } catch {
+      toast.error("Failed to check star status. Please try again.");
+    } finally {
+      setIsCheckingStar(false);
+    }
+  };
+
   if (reviewsLoading || reposLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -268,26 +344,60 @@ export default function FullReviewPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">
-          Full Repository Review
-        </h1>
-        <p className="text-muted-foreground">
-          Get comprehensive AI-powered code reviews for your entire codebase
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Full Repository Review
+          </h1>
+          <p className="text-muted-foreground">
+            Get comprehensive AI-powered code reviews for your entire codebase
+          </p>
+        </div>
+        {hasStarred ? (
+          <Badge className="gap-1.5 bg-gradient-to-r from-yellow-500/10 via-amber-500/10 to-orange-500/10 text-amber-600 border-amber-500/30">
+            <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
+            Pro Access
+          </Badge>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 border-amber-500/30 text-amber-600 hover:bg-amber-500/10"
+            onClick={() => {
+              setStarRepoUrl(subscriptionData?.repoUrl || "");
+              setShowStarDialog(true);
+            }}
+          >
+            <Star className="h-3.5 w-3.5" />
+            Star to Unlock
+          </Button>
+        )}
       </div>
 
       {/* Request Review Section */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileSearch className="h-5 w-5" />
-            Request New Review
-          </CardTitle>
-          <CardDescription>
-            Select a repository to get a full codebase review from our
-            multi-agent AI system
-          </CardDescription>
+          <div className="flex items-start justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <FileSearch className="h-5 w-5" />
+                Request New Review
+              </CardTitle>
+              <CardDescription>
+                Select a repository to get a full codebase review from our
+                multi-agent AI system
+              </CardDescription>
+            </div>
+            {!hasStarred && (
+              <Badge
+                variant="outline"
+                className="gap-1 text-amber-600 border-amber-500/30"
+              >
+                <Star className="h-3 w-3" />
+                Requires Star
+              </Badge>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex gap-4 items-end">
@@ -517,6 +627,109 @@ export default function FullReviewPage() {
           </div>
         )}
       </div>
+
+      {/* Star Required Dialog */}
+      <Dialog open={showStarDialog} onOpenChange={setShowStarDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader className="text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 via-amber-500 to-orange-500 shadow-lg shadow-amber-500/30">
+              <Star className="h-8 w-8 text-white fill-white" />
+            </div>
+            <DialogTitle className="text-2xl font-bold text-center">
+              Unlock Full Repository Reviews
+            </DialogTitle>
+            <DialogDescription className="text-center pt-2">
+              Star our repository on GitHub to unlock this powerful feature —
+              completely free!
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* Benefits */}
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-green-500/10">
+                  <Sparkles className="h-3.5 w-3.5 text-green-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Multi-Agent AI Analysis</p>
+                  <p className="text-xs text-muted-foreground">
+                    Specialized AI agents review your entire codebase
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-500/10">
+                  <Bot className="h-3.5 w-3.5 text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Deep Code Insights</p>
+                  <p className="text-xs text-muted-foreground">
+                    Security, performance, and architecture analysis
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-purple-500/10">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-purple-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">
+                    Actionable Recommendations
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Prioritized fixes with code suggestions
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* CTA Buttons */}
+            <div className="flex flex-col gap-3">
+              <Button
+                className="w-full gap-2 bg-gradient-to-r from-yellow-500 via-amber-500 to-orange-500 hover:from-yellow-600 hover:via-amber-600 hover:to-orange-600 text-white shadow-lg shadow-amber-500/25"
+                asChild
+              >
+                <a
+                  href={
+                    "https://github.com/SarthakGagapalliwar/LetsReview"
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Github className="h-4 w-4" />
+                  Star on GitHub
+                  <ExternalLink className="h-3.5 w-3.5 ml-1" />
+                </a>
+              </Button>
+
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={handleCheckStar}
+                disabled={isCheckingStar}
+              >
+                {isCheckingStar ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Checking...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4" />
+                    I&apos;ve Starred — Check Now
+                  </>
+                )}
+              </Button>
+            </div>
+
+            <p className="text-xs text-center text-muted-foreground">
+              Your star helps us grow and continue providing free AI code
+              reviews. Thank you! 💛
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
