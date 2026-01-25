@@ -2,6 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/db";
+import { Prisma } from "@/lib/generated/prisma";
 import { headers } from "next/headers";
 import { inngest } from "@/inngest/client";
 import { Octokit } from "octokit";
@@ -180,7 +181,7 @@ export async function requestFullRepoReview(repositoryId: string) {
         status: "pending",
         errorMessage: null,
         review: "",
-        agentResults: null,
+        agentResults: Prisma.JsonNull,
         updatedAt: new Date(),
       },
     });
