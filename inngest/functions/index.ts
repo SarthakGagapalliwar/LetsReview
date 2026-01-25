@@ -13,6 +13,14 @@ export const indexRepo = inngest.createFunction(
   async ({ event, step }) => {
     const { owner, repo, userId } = event.data;
 
+    // Update index status to "indexing"
+    await step.run("update-index-status-start", async () => {
+      await prisma.repository.updateMany({
+        where: { owner, name: repo, userId },
+        data: { indexStatus: "indexing" },
+      });
+    });
+
     //files
     const files = await step.run("fetch-files", async () => {
       const account = await prisma.account.findFirst({
@@ -38,6 +46,17 @@ export const indexRepo = inngest.createFunction(
 
     await step.run("index-codebase", async () => {
       await indexCodebase(`${owner}/${repo}`, files);
+    });
+
+    // Update index status to "indexed"
+    await step.run("update-index-status-complete", async () => {
+      await prisma.repository.updateMany({
+        where: { owner, name: repo, userId },
+        data: {
+          indexStatus: "indexed",
+          indexedAt: new Date(),
+        },
+      });
     });
 
     return { success: true, indexedFiles: files.length };
@@ -89,7 +108,21 @@ export const reindexRepo = inngest.createFunction(
       await indexCodebase(repoId, files);
     });
 
+    // Update index status to "indexed"
+    await step.run("update-index-status-complete", async () => {
+      await prisma.repository.updateMany({
+        where: { owner, name: repo, userId },
+        data: {
+          indexStatus: "indexed",
+          indexedAt: new Date(),
+        },
+      });
+    });
+
     return { success: true, reindexedFiles: files.length, branch };
   },
 );
 //to tun inngest ngrok adn bun run dev
+
+// Export all functions from full-repo-review
+export { generateFullRepoReview, updateIndexStatus } from "./full-repo-review";

@@ -38,21 +38,49 @@ model User {
 }
 
 model Repository {
-  id           String        @id @default(cuid())
-  githubId     BigInt        @unique
-  name         String
-  owner        String
-  fullName     String
-  url          String
-  userId       String
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  reviews      Review[]
-  reviewCounts ReviewCount[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id                String             @id @default(cuid())
+  githubId          BigInt             @unique
+  name              String
+  owner             String
+  fullName          String
+  url               String
+  userId            String
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviews           Review[]
+  reviewCounts      ReviewCount[]
+  repositoryReviews RepositoryReview[]
+  indexStatus       String             @default("pending") // pending, indexing, indexed, failed
+  indexedAt         DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   @@index([userId])
   @@map("repository")
+}
+
+// Full repository review (multi-agent orchestrated review)
+model RepositoryReview {
+  id           String     @id @default(cuid())
+  repositoryId String
+  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  // Review content
+  review String @db.Text
+  status String @default("pending") // pending, analyzing, reviewing, completed, failed
+
+  // Agent breakdown stored as JSON for flexibility
+  agentResults Json? // { agents: [{ role, scope, review }], classifier: {...} }
+
+  // Metadata
+  triggerType  String  @default("manual") // manual, scheduled
+  errorMessage String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([repositoryId])
+  @@index([status])
+  @@map("repository_review")
 }
 
 model Review {
