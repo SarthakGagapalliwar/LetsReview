@@ -1,6 +1,14 @@
 "use client";
 
-import { Github, BookOpen, Settings, Moon, Sun, LogOut } from "lucide-react";
+import {
+  Github,
+  BookOpen,
+  Settings,
+  Moon,
+  Sun,
+  LogOut,
+  FileSearch,
+} from "lucide-react";
 import Image from "next/image";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
@@ -48,6 +56,11 @@ export const AppSidebar = () => {
     { title: "Dashboard", url: "/dashboard", icon: BookOpen },
     { title: "Repository", url: "/dashboard/repository", icon: Github },
     { title: "Reviews", url: "/dashboard/reviews", icon: BookOpen },
+    {
+      title: "Full Repo Review",
+      url: "/dashboard/full-review",
+      icon: FileSearch,
+    },
     { title: "Subscriptions", url: "/dashboard/subscriptions", icon: BookOpen },
     { title: "Settings", url: "/dashboard/settings", icon: Settings },
   ];

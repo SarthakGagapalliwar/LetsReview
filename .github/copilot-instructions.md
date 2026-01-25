@@ -4,6 +4,8 @@
 
 LetsReview is an AI-powered code review platform built with Next.js 16 (App Router). It integrates with GitHub to automatically review pull requests using RAG (Retrieval-Augmented Generation) with Pinecone vector storage.
 
+NOTE: USE BUN FOR EVERYTHING
+
 ## Architecture
 
 ### Core Data Flow
