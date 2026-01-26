@@ -116,8 +116,8 @@ const openrouter = createOpenRouter({
 const orchestratorModel = openrouter.chat("google/gemini-3-flash-preview");
 const workerModel = openrouter.chat("google/gemini-3-flash-preview");
 
-// const orchestratorModel = nim.chatModel("qwen/qwen3-next-80b-a3b-instruct");
-// const workerModel = nim.chatModel("qwen/qwen3-next-80b-a3b-instruct");
+// const orchestratorModel = nim.chatModel("moonshotai/kimi-k2-thinking");
+// const workerModel = nim.chatModel("moonshotai/kimi-k2-thinking");
 
 // ============================================================================
 // Classifier Agent (Manager) - Full ToolLoopAgent
