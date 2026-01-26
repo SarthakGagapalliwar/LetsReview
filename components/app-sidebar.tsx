@@ -8,6 +8,9 @@ import {
   Sun,
   LogOut,
   FileSearch,
+  HelpCircle,
+  LayoutDashboard,
+  Star,
 } from "lucide-react";
 import Image from "next/image";
 import { useTheme } from "next-themes";
@@ -53,7 +56,7 @@ export const AppSidebar = () => {
   }, []);
 
   const navigationItems = [
-    { title: "Dashboard", url: "/dashboard", icon: BookOpen },
+    { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
     { title: "Repository", url: "/dashboard/repository", icon: Github },
     { title: "Reviews", url: "/dashboard/reviews", icon: BookOpen },
     {
@@ -61,8 +64,9 @@ export const AppSidebar = () => {
       url: "/dashboard/full-review",
       icon: FileSearch,
     },
-    { title: "Subscriptions", url: "/dashboard/subscriptions", icon: BookOpen },
+    { title: "Subscriptions", url: "/dashboard/subscriptions", icon: Star },
     { title: "Settings", url: "/dashboard/settings", icon: Settings },
+    { title: "How to Use", url: "/dashboard/docs", icon: HelpCircle },
   ];
 
   const isActive = (url: string) => {
