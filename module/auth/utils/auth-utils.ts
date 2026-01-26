@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import prisma from "@/lib/db";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -28,5 +29,21 @@ export const requiredUnAuth = async () => {
   if (session) {
     redirect("/dashboard");
   }
+  return session;
+};
+
+export const requireAdmin = async () => {
+  const session = await requiredAuth();
+
+  // Check if user has admin role
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true },
+  });
+
+  if (!user || user.role !== "ADMIN") {
+    redirect("/dashboard");
+  }
+
   return session;
 };
