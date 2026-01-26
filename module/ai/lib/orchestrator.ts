@@ -99,25 +99,25 @@ export type AggregatedReview = z.infer<typeof AggregatedReviewSchema>;
 // Orchestrator Configuration
 // ============================================================================
 
-// const openrouter = createOpenRouter({
-//   apiKey: process.env.OPENROUTER_API_KEY,
-// });
-
-const nim = createOpenAICompatible({
-  name: "nim",
-  baseURL: "https://integrate.api.nvidia.com/v1",
-  headers: {
-    Authorization: `Bearer ${process.env.NIM_API_KEY}`,
-  },
+const openrouter = createOpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
 });
+
+// const nim = createOpenAICompatible({
+//   name: "nim",
+//   baseURL: "https://integrate.api.nvidia.com/v1",
+//   headers: {
+//     Authorization: `Bearer ${process.env.NIM_API_KEY}`,
+//   },
+// });
 
 // Using capable models for structured output generation
 // Gemini 2.0 Flash is good at JSON/structured output and tool calling
-// const orchestratorModel = openrouter.chat("google/gemini-3-flash-preview");
-// const workerModel = openrouter.chat("google/gemini-3-flash-preview");
+const orchestratorModel = openrouter.chat("google/gemini-3-flash-preview");
+const workerModel = openrouter.chat("google/gemini-3-flash-preview");
 
-const orchestratorModel = nim.chatModel("moonshotai/kimi-k2-thinking");
-const workerModel = nim.chatModel("moonshotai/kimi-k2-thinking");
+// const orchestratorModel = nim.chatModel("moonshotai/kimi-k2-thinking");
+// const workerModel = nim.chatModel("moonshotai/kimi-k2-thinking");
 
 // ============================================================================
 // Classifier Agent (Manager) - Full ToolLoopAgent
