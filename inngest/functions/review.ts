@@ -423,7 +423,7 @@ Ensure all fixes maintain the existing code style and don't introduce new issues
       // });
 
       const { text } = await generateText({
-        model: openrouter.chat("xiaomi/mimo-v2-flash:free"),
+        model: openrouter.chat("google/gemini-3-flash-preview"),
         prompt,
         temperature: 0.2,
       });

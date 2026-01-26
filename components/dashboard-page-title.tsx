@@ -8,6 +8,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/dashboard/reviews": "Reviews",
   "/dashboard/settings": "Settings",
   "/dashboard/subscriptions": "Subscriptions",
+  "/dashboard/docs": "How to Use",
+  "/dashboard/full-review": "Full Repo Review",
 };
 
 export function DashboardPageTitle() {

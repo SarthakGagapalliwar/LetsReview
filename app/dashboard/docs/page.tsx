@@ -266,8 +266,8 @@ export default function DocsPage() {
                 <div>
                   <p className="font-medium text-sm mb-1">Keep Repos Indexed</p>
                   <p className="text-xs text-muted-foreground">
-                    Indexed repositories get instant reviews. Re-index after
-                    major refactors.
+                    Indexed repositories get instant reviews. We Re-Index 
+                    after every commit and PR merge.
                   </p>
                 </div>
               </div>
@@ -327,7 +327,8 @@ export default function DocsPage() {
                 </p>
               </div>
               <a
-                href="mailto:sarthakspg@gmail.com?subject=LetsReview%20Support%20Request&body=Hi%20LetsReview%20Team%2C%0A%0AMy%20name%20is%20____.%0A%0AI%20need%20help%20with%3A%0A-%20%0A%0AThanks%2C%0A____"
+              target="_blank"
+                href="https://github.com/SarthakGagapalliwar/LetsReview/issues/new"
                 className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
               >
                 Contact Support
