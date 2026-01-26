@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/provider/them-provider";
 import { QueryProvider } from "@/components/provider/qurey-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { Analytics } from "@vercel/analytics/next"
 
 /**
  * Root Layout - Design System
@@ -50,6 +51,7 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             {children}
+            <Analytics />
             <Toaster richColors closeButton position="bottom-right" />
           </ThemeProvider>
         </QueryProvider>
