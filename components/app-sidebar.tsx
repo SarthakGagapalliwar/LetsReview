@@ -11,12 +11,15 @@ import {
   HelpCircle,
   LayoutDashboard,
   Star,
+  Shield,
 } from "lucide-react";
 import Image from "next/image";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
+import { useQuery } from "@tanstack/react-query";
+import { checkIsAdmin } from "@/module/admin/actions";
 import {
   Sidebar,
   SidebarContent,
@@ -51,6 +54,14 @@ export const AppSidebar = () => {
   const pathname = usePathname();
   const { data: session } = useSession();
 
+  // Check if user is admin
+  const { data: isAdmin } = useQuery({
+    queryKey: ["is-admin"],
+    queryFn: checkIsAdmin,
+    enabled: !!session,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -68,6 +79,15 @@ export const AppSidebar = () => {
     { title: "Settings", url: "/dashboard/settings", icon: Settings },
     { title: "How to Use", url: "/dashboard/docs", icon: HelpCircle },
   ];
+
+  // Add admin link if user is admin
+  const allNavigationItems = isAdmin
+    ? [
+        ...navigationItems.slice(0, 1),
+        { title: "Admin", url: "/dashboard/admin", icon: Shield },
+        ...navigationItems.slice(1),
+      ]
+    : navigationItems;
 
   const isActive = (url: string) => {
     if (url === "/dashboard") return pathname === url;
@@ -121,7 +141,7 @@ export const AppSidebar = () => {
         </p>
 
         <SidebarMenu className="gap-1">
-          {navigationItems.map((item) => {
+          {allNavigationItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.url);
             return (
