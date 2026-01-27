@@ -7,11 +7,12 @@ import {
   getFilesAtRef,
 } from "@/module/github/lib/github";
 import { retrieveContext, extractFilePathsFromDiff } from "@/module/ai/lib/rag";
-import { generateText } from "ai";
+import { generateText, wrapLanguageModel } from "ai";
 import prisma from "@/lib/db";
 import { incrementReviewCountAtomic } from "@/module/payment/lib/subscription";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { devToolsMiddleware } from "@ai-sdk/devtools";
 
 export const generateReview = inngest.createFunction(
   {
@@ -410,20 +411,29 @@ Ensure all fixes maintain the existing code style and don't introduce new issues
 
 </details>`;
 
-      const openrouter = createOpenRouter({
-        apiKey: process.env.OPENROUTER_API_KEY,
-      });
-
-      // const nim = createOpenAICompatible({
-      //   name: "nim",
-      //   baseURL: "https://integrate.api.nvidia.com/v1",
-      //   headers: {
-      //     Authorization: `Bearer ${process.env.NIM_API_KEY}`,
-      //   },
+      // const openrouter = createOpenRouter({
+      //   apiKey: process.env.OPENROUTER_API_KEY,
       // });
 
+      const nim = createOpenAICompatible({
+        name: "nim",
+        baseURL: "https://integrate.api.nvidia.com/v1",
+        headers: {
+          Authorization: `Bearer ${process.env.NIM_API_KEY}`,
+        },
+      });
+
+      const baseModel = nim.chatModel("moonshotai/kimi-k2.5");
+      const model =
+        process.env.NODE_ENV === "production"
+          ? baseModel
+          : wrapLanguageModel({
+              model: baseModel,
+              middleware: devToolsMiddleware(),
+            });
+
       const { text } = await generateText({
-        model: openrouter.chat("google/gemini-3-flash-preview"),
+        model,
         prompt,
         temperature: 0.2,
       });
