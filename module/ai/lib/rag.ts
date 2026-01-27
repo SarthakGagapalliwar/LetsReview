@@ -299,7 +299,7 @@ export async function indexCodebase(
 
   for (const file of files) {
     const content = `File: ${file.path}\n\n${file.content}`;
-    const truncatedContent = content.slice(0, 8000);
+    const truncatedContent = content.slice(0, 80000);
 
     try {
       const embedding = await generateEmbedding(truncatedContent);

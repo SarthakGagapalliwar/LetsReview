@@ -9,8 +9,10 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/devtools": "^0.0.8",
     "@ai-sdk/google": "^3.0.6",
     "@ai-sdk/openai-compatible": "^2.0.4",
+    "@aihubmix/ai-sdk-provider": "^1.0.3",
     "@hookform/resolvers": "^5.2.2",
     "@inngest/realtime": "^0.4.5",
     "@openrouter/ai-sdk-provider": "^2.0.0",

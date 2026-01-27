@@ -1,8 +1,10 @@
-import { ToolLoopAgent, tool, stepCountIs } from "ai";
+import { ToolLoopAgent, tool, stepCountIs, wrapLanguageModel } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { z } from "zod";
 import { retrieveContext } from "./rag";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { createAihubmix } from '@aihubmix/ai-sdk-provider';
+import { devToolsMiddleware } from "@ai-sdk/devtools";
 
 // ============================================================================
 // Types and Schemas
@@ -103,24 +105,37 @@ const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
 });
 
-// const nim = createOpenAICompatible({
-//   name: "nim",
-//   baseURL: "https://integrate.api.nvidia.com/v1",
-//   headers: {
-//     Authorization: `Bearer ${process.env.NIM_API_KEY}`,
-//   },
-// });
+const nim = createOpenAICompatible({
+  name: "nim",
+  baseURL: "https://integrate.api.nvidia.com/v1",
+  headers: {
+    Authorization: `Bearer ${process.env.NIM_API_KEY}`,
+  },
+});
+
+const aihubmix = createAihubmix({
+  apiKey: process.env.AIHUBMIX_API_KEY,
+});
 
 // Using capable models for structured output generation
 // Gemini 2.0 Flash is good at JSON/structured output and tool calling
-const orchestratorModel = openrouter.chat("google/gemini-3-flash-preview");
-const workerModel = openrouter.chat("google/gemini-3-flash-preview");
+// const orchestratorModel = openrouter.chat("google/gemini-3-flash-preview");
+// const workerModel = openrouter.chat("google/gemini-3-flash-preview");
 
-// const orchestratorModel = nim.chatModel("moonshotai/kimi-k2-thinking");
-// const workerModel = nim.chatModel("moonshotai/kimi-k2-thinking");
+const maybeWithDevtools = (model: ReturnType<typeof nim.chatModel>) =>
+  process.env.NODE_ENV === "production"
+    ? model
+    : wrapLanguageModel({
+        model,
+        middleware: devToolsMiddleware(),
+      });
+const orchestratorModel = maybeWithDevtools(
+  nim.chatModel("deepseek-ai/deepseek-v3.1-terminus")
+);
+const workerModel = maybeWithDevtools(nim.chatModel("deepseek-ai/deepseek-v3.1-terminus"));
 
 // ============================================================================
-// Classifier Agent (Manager) - Full ToolLoopAgent
+// Classifier Agent (Manager) - Full ToolLoopAgent  
 // ============================================================================
 
 /**
@@ -129,6 +144,7 @@ const workerModel = openrouter.chat("google/gemini-3-flash-preview");
 function createClassifierAgent(codebaseContext: string[]) {
   return new ToolLoopAgent({
     model: orchestratorModel,
+    temperature: 0.2,
     instructions: `You are a Senior Technical Architect analyzing a codebase to determine the best review strategy.
 
 Your task is to:
@@ -211,7 +227,7 @@ CRITICAL: You MUST call the submitClassification tool with your complete analysi
       }),
     },
     toolChoice: "auto", // Force the model to use tools
-    stopWhen: stepCountIs(10), // Max 10 steps for classification
+    stopWhen: stepCountIs(20), // Max 10 steps for classification
     // Force submitClassification on later steps if agent hasn't submitted yet
     // prepareStep: async ({ stepNumber, steps }) => {
     //   // Check if submitClassification was already called
@@ -350,7 +366,7 @@ CRITICAL: You MUST call the submitReview tool with your complete findings. Do no
       }),
     },
     toolChoice: "auto", // Force the model to use tools
-    stopWhen: stepCountIs(12), // Max 12 steps per worker
+    stopWhen: stepCountIs(20), // Max 12 steps per worker
     // Force submitReview on later steps if agent hasn't submitted yet
     // prepareStep: async ({ stepNumber, steps }) => {
     //   const hasSubmitted = steps.some((step) =>
@@ -502,7 +518,7 @@ CRITICAL: You MUST call the submitAggregatedReview tool with your complete synth
       }),
     },
     toolChoice: "auto", // Force the model to use tools
-    stopWhen: stepCountIs(8), // Max 8 steps for aggregation
+    stopWhen: stepCountIs(20), // Max 8 steps for aggregation
     // Force submitAggregatedReview on later steps if agent hasn't submitted yet
     // prepareStep: async ({ stepNumber, steps }) => {
     //   const hasSubmitted = steps.some((step) =>
