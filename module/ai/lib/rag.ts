@@ -283,7 +283,7 @@ export class PartialDeletionError extends Error {
 
 export async function generateEmbedding(text: string) {
   const { embedding } = await embed({
-    model: google.embeddingModel("gemini-embedding-001"),
+    model: google.embeddingModel("gemini-embedding-001"), 
     value: text,
   });
   return embedding;
