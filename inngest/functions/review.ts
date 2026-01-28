@@ -13,6 +13,7 @@ import { incrementReviewCountAtomic } from "@/module/payment/lib/subscription";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { devToolsMiddleware } from "@ai-sdk/devtools";
+import { createAihubmix } from "@aihubmix/ai-sdk-provider";
 
 export const generateReview = inngest.createFunction(
   {
@@ -411,9 +412,13 @@ Ensure all fixes maintain the existing code style and don't introduce new issues
 
 </details>`;
 
-      // const openrouter = createOpenRouter({
-      //   apiKey: process.env.OPENROUTER_API_KEY,
-      // });
+      const openrouter = createOpenRouter({
+        apiKey: process.env.OPENROUTER_API_KEY,
+      });
+
+      const aihubmix = createAihubmix({
+        apiKey: process.env.AIHUBMIX_API_KEY,
+      });
 
       const nim = createOpenAICompatible({
         name: "nim",
@@ -423,7 +428,7 @@ Ensure all fixes maintain the existing code style and don't introduce new issues
         },
       });
 
-      const baseModel = nim.chatModel("moonshotai/kimi-k2.5");
+      const baseModel =openrouter.chat("xiaomi/mimo-v2-flash")
       const model =
         process.env.NODE_ENV === "production"
           ? baseModel
