@@ -42,70 +42,8 @@ LetsReview is an AI-powered code review platform that automatically reviews your
 - Pinecone account
 - AI API key (Google, OpenRouter, or AihubMix)
 
-### Environment Variables
 
-Create a `.env` file with the following variables:
 
-```env
-# Database
-DATABASE_URL="postgresql://..."
-
-# GitHub OAuth
-GITHUB_CLIENT_ID="..."
-GITHUB_CLIENT_SECRET="..."
-
-# Pinecone
-PINECONE_API_KEY="..."
-PINECONE_INDEX="..."
-
-# AI Providers (at least one required)
-GOOGLE_GENERATIVE_AI_API_KEY="..."
-OPENROUTER_API_KEY="..."
-AIHUBMIX_API_KEY="..."
-
-# Inngest
-INNGEST_SIGNING_KEY="..."
-INNGEST_EVENT_KEY="..."
-
-# App
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
-BETTER_AUTH_SECRET="..."
-```
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/letsreview.git
-cd letsreview
-
-# Install dependencies
-npm install
-
-# Generate Prisma client
-npx prisma generate
-
-# Run database migrations
-npx prisma migrate dev
-
-# Start development server
-npm run dev
-```
-
-### Pinecone Configuration
-
-The RAG system supports configurable Pinecone settings via environment variables:
-
-```env
-# Pinecone tuning (optional - defaults shown)
-PINECONE_LIST_PAGE_SIZE=100         # Max vectors per list request (1-100)
-PINECONE_DELETE_BATCH_SIZE=1000     # Max vectors per delete request (1-1000)
-PINECONE_MAX_ITERATIONS=1000        # Safety limit for pagination loops
-PINECONE_MAX_DURATION_MS=300000     # Timeout for long operations (5 min)
-PINECONE_RATE_LIMIT_DELAY_MS=50     # Delay between API calls
-PINECONE_MAX_RETRY_ATTEMPTS=3       # Retry count for failed operations
-PINECONE_PROGRESS_LOG_INTERVAL=5000 # Log progress every N vectors
-```
 
 ## 📁 Project Structure
 
@@ -223,7 +161,3 @@ For comprehensive repository analysis, LetsReview uses a multi-agent orchestrato
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
-
-This project is licensed under the MIT License.
