@@ -428,7 +428,7 @@ Ensure all fixes maintain the existing code style and don't introduce new issues
         },
       });
 
-      const baseModel =openrouter.chat("xiaomi/mimo-v2-flash")
+      const baseModel =openrouter.chat("stepfun/step-3.5-flash")
       const model =
         process.env.NODE_ENV === "production"
           ? baseModel
