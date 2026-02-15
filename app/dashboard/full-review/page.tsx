@@ -1,5 +1,49 @@
 "use client";
 
+import { Rocket, Sparkles, Clock } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+
+export default function FullReviewPage() {
+  return (
+    <div className="flex flex-1 items-center justify-center min-h-[70vh] p-6">
+      <Card className="max-w-lg w-full border-dashed border-2 shadow-none bg-background/50">
+        <CardContent className="flex flex-col items-center text-center gap-6 pt-10 pb-10">
+          <div className="relative">
+            <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
+              <Rocket className="h-10 w-10 text-primary" />
+            </div>
+            <div className="absolute -top-1 -right-1">
+              <Sparkles className="h-6 w-6 text-yellow-500 animate-pulse" />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold tracking-tight">
+              Launching Soon
+            </h2>
+            <p className="text-muted-foreground text-sm max-w-md">
+              Full Repository Review is getting a major upgrade. We&apos;re
+              working hard to bring you an even better AI-powered code review
+              experience. Stay tuned!
+            </p>
+          </div>
+
+          <Badge variant="secondary" className="gap-1.5 px-3 py-1">
+            <Clock className="h-3.5 w-3.5" />
+            Coming Soon
+          </Badge>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/*
+// ============================================
+// OLD FULL REVIEW PAGE — COMMENTED OUT
+// ============================================
+
 import {
   Card,
   CardContent,
@@ -343,7 +387,7 @@ export default function FullReviewPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header * /}
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
@@ -374,7 +418,7 @@ export default function FullReviewPage() {
         )}
       </div>
 
-      {/* Request Review Section */}
+      {/* Request Review Section * /}
       <Card>
         <CardHeader>
           <div className="flex items-start justify-between">
@@ -453,7 +497,7 @@ export default function FullReviewPage() {
         </CardContent>
       </Card>
 
-      {/* Reviews List */}
+      {/* Reviews List * /}
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Review History</h2>
 
@@ -628,7 +672,7 @@ export default function FullReviewPage() {
         )}
       </div>
 
-      {/* Star Required Dialog */}
+      {/* Star Required Dialog * /}
       <Dialog open={showStarDialog} onOpenChange={setShowStarDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader className="text-center">
@@ -645,7 +689,7 @@ export default function FullReviewPage() {
           </DialogHeader>
 
           <div className="space-y-6 py-4">
-            {/* Benefits */}
+            {/* Benefits * /}
             <div className="space-y-3">
               <div className="flex items-start gap-3">
                 <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-green-500/10">
@@ -684,7 +728,7 @@ export default function FullReviewPage() {
               </div>
             </div>
 
-            {/* CTA Buttons */}
+            {/* CTA Buttons * /}
             <div className="flex flex-col gap-3">
               <Button
                 className="w-full gap-2 bg-gradient-to-r from-yellow-500 via-amber-500 to-orange-500 hover:from-yellow-600 hover:via-amber-600 hover:to-orange-600 text-white shadow-lg shadow-amber-500/25"
@@ -733,3 +777,4 @@ export default function FullReviewPage() {
     </div>
   );
 }
+*/
