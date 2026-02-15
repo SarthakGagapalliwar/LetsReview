@@ -428,7 +428,7 @@ Ensure all fixes maintain the existing code style and don't introduce new issues
         },
       });
 
-      const baseModel =openrouter.chat("minimax/minimax-m2.5")
+      const baseModel =openrouter.chat("stepfun/step-3.5-flash")
       const model =
         process.env.NODE_ENV === "production"
           ? baseModel
