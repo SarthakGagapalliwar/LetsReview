@@ -2,7 +2,7 @@
 
 **Cut Code Review Time & Bugs in Half. Instantly.**
 
-LetsReview is an AI-powered code review platform that automatically reviews your GitHub pull requests using RAG (Retrieval-Augmented Generation) with contextual understanding of your codebase..
+LetsReview is an AI-powered code review platform that automatically reviews your GitHub pull requests using RAG (Retrieval-Augmented Generation) with contextual understanding of your codebase.
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black)
 ![Prisma](https://img.shields.io/badge/Prisma-ORM-2D3748)
